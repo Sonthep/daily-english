@@ -1,0 +1,145 @@
+:root {
+  /* Color Palette Tokens */
+  --color-bg: #F8F9F5;
+  --color-surface: #FFFFFF;
+  --color-primary: #245C4F;
+  --color-primary-hover: #1b473d;
+  --color-primary-soft: #E7F0EA;
+  --color-accent-soft: #F7E8D7;
+  --color-text: #182A25;
+  --color-text-muted: #596A63;
+  --color-border: #DCE4DE;
+  --color-error: #B42318;
+  --color-error-soft: #FDE8E8;
+  --color-success: #1E6B43;
+  --color-success-soft: #E8F5EE;
+
+  /* Spacing Scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Radii */
+  --radius-card: 20px;
+  --radius-control: 12px;
+  --radius-badge: 9999px;
+
+  /* Layout Max Widths & Sizing */
+  --content-max-width: 1200px;
+  --lesson-max-width: 760px;
+  --sidebar-width: 232px;
+  --touch-target-min: 44px;
+
+  /* Typography */
+  --font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-size-xs: 13px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-md: 18px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 30px;
+  --font-size-3xl: 36px;
+  --line-height-thai: 1.62;
+
+  /* Transitions & Shadows */
+  --shadow-subtle: 0 2px 8px rgba(24, 42, 37, 0.04), 0 1px 2px rgba(24, 42, 37, 0.02);
+  --shadow-card: 0 4px 16px rgba(24, 42, 37, 0.05), 0 1px 3px rgba(24, 42, 37, 0.03);
+  --shadow-elevated: 0 12px 32px rgba(24, 42, 37, 0.08), 0 2px 6px rgba(24, 42, 37, 0.04);
+  --transition-smooth: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Reset and Base Styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100%;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-thai);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography Defaults */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+h1 { font-size: var(--font-size-2xl); }
+h2 { font-size: var(--font-size-xl); }
+h3 { font-size: var(--font-size-lg); }
+
+p {
+  color: var(--color-text);
+  margin-bottom: var(--space-xs);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* Form Elements */
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  color: inherit;
+}
+
+/* Focus Ring for Keyboard Accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Utilities */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
