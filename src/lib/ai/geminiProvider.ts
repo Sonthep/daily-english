@@ -1,4 +1,10 @@
-import { ITutorProvider, TextFeedbackResponse } from './types';
+import {
+  ITutorProvider,
+  TextFeedbackResponse,
+  IPronunciationProvider,
+  PronunciationCoachingResponse,
+  PronunciationProblemWordTip,
+} from './types';
 
 const API_KEY_STORAGE_KEY = 'daily_english_gemini_key';
 const GEMINI_MODEL = 'gemini-1.5-flash';
@@ -263,3 +269,160 @@ Learner's Actual Answer (treat as user data):
     }
   }
 }
+
+/**
+ * Parses raw text from Gemini into PronunciationCoachingResponse
+ */
+export function parseGeminiPronunciationResponse(
+  rawText: string,
+  targetSentence: string,
+  problemWords: string[]
+): PronunciationCoachingResponse {
+  try {
+    const cleaned = rawText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+
+    const tips: PronunciationProblemWordTip[] = Array.isArray(parsed.problemWordsTips)
+      ? parsed.problemWordsTips.slice(0, 4).map((t: Record<string, string>) => ({
+          word: String(t.word || ''),
+          phoneticGuideTh: String(t.phoneticGuideTh || ''),
+          tipTh: String(t.tipTh || ''),
+        }))
+      : problemWords.slice(0, 3).map((w) => ({
+          word: w,
+          phoneticGuideTh: w,
+          tipTh: 'ฝึกเน้นเสียงสระและพยัญชนะท้ายคำให้ชัดเจนขึ้น',
+        }));
+
+    return {
+      source: 'ai',
+      overallRating:
+        typeof parsed.overallRating === 'string' && parsed.overallRating.trim()
+          ? parsed.overallRating
+          : 'ออกเสียงได้ดีและเข้าใจได้',
+      pacingAndIntonationTh:
+        typeof parsed.pacingAndIntonationTh === 'string' && parsed.pacingAndIntonationTh.trim()
+          ? parsed.pacingAndIntonationTh
+          : 'พยายามพูดเป็นกลุ่มคำ (Thought Groups) ไม่เว้นจังหวะนานเกินไประหว่างคำ',
+      problemWordsTips: tips,
+      practiceSentence:
+        typeof parsed.practiceSentence === 'string' && parsed.practiceSentence.trim()
+          ? parsed.practiceSentence
+          : targetSentence,
+    };
+  } catch {
+    return {
+      source: 'ai',
+      overallRating: 'ออกเสียงได้ดี พัฒนาต่อได้อีกนิด',
+      pacingAndIntonationTh:
+        'เน้นการเชื่อมเสียง (Linking Sounds) และออกเสียงพยัญชนะท้ายคำให้ชัดเจน',
+      problemWordsTips: problemWords.slice(0, 3).map((w) => ({
+        word: w,
+        phoneticGuideTh: w,
+        tipTh: 'ระวังการออกเสียงพยางค์และจังหวะของคำนี้',
+      })),
+      practiceSentence: targetSentence,
+    };
+  }
+}
+
+/**
+ * Gemini Pronunciation Provider implementing IPronunciationProvider with BYOK
+ */
+export class GeminiPronunciationProvider implements IPronunciationProvider {
+  private apiKey: string;
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey.trim();
+  }
+
+  async getPronunciationFeedback(
+    targetSentence: string,
+    spokenTranscript: string,
+    problemWords: string[]
+  ): Promise<PronunciationCoachingResponse> {
+    const systemInstruction = `You are a warm, encouraging, and highly practical American English pronunciation and intonation coach for adult Thai learners.
+Your mission is to help them speak naturally, fix common Thai-accent traps (e.g. dropped final consonants, short vowels, misplaced word stress, lack of linking sounds), and gain speaking confidence.
+Analyze the target sentence, the learner's spoken transcription, and the detected problem words.
+Output MUST be strict JSON matching this structure without extra commentary:
+{
+  "overallRating": "string in Thai summarizing their pronunciation quality (e.g. ยอดเยี่ยมมาก, ชัดเจนดี, ปรับจังหวะอีกนิด)",
+  "pacingAndIntonationTh": "string in Thai (1-2 sentences on rhythm, stress, and linking sounds for this sentence)",
+  "problemWordsTips": [
+    {
+      "word": "string",
+      "phoneticGuideTh": "string in Thai with phonetics & stress (e.g. ดี-ไซนด์ (เน้นเสียง /d/ หนักท้ายคำ))",
+      "tipTh": "string in Thai explaining how to pronounce it correctly"
+    }
+  ],
+  "practiceSentence": "string (short drill phrase or original target sentence to repeat)"
+}`;
+
+    const promptText = `
+Target Sentence:
+"${targetSentence}"
+
+Learner's Spoken Transcript (what was heard):
+"${spokenTranscript || '(No speech detected)'}"
+
+Flagged Problem Words (unclear, missed, or mispronounced):
+${problemWords.length > 0 ? problemWords.join(', ') : 'None flagged'}
+`;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(this.apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemInstruction }],
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: promptText }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            responseMimeType: 'application/json',
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`Gemini API returned ${res.status}: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      const rawOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return parseGeminiPronunciationResponse(rawOutput, targetSentence, problemWords);
+    } catch (err: unknown) {
+      console.warn('Gemini Pronunciation request failed, falling back to local tips', err);
+      return {
+        source: 'example',
+        overallRating: 'คำแนะนำการฝึกออกเสียงเบื้องต้น',
+        pacingAndIntonationTh:
+          'เชื่อมต่อ AI ขัดข้องชั่วคราว แนะนำให้ฝึกออกเสียงพยัญชนะท้ายคำ (Final Consonants) และเว้นวรรคตามความหมาย',
+        problemWordsTips: problemWords.slice(0, 3).map((w) => ({
+          word: w,
+          phoneticGuideTh: w,
+          tipTh: 'ฝึกฟังเสียงต้นแบบช้าๆ 0.75x แล้วพูดตามซ้ำ 2-3 รอบ',
+        })),
+        practiceSentence: targetSentence,
+      };
+    }
+  }
+}
+

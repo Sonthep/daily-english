@@ -1,5 +1,14 @@
-import { ITutorProvider, TextFeedbackResponse } from './types';
-import { GeminiTutorProvider, getStoredGeminiApiKey } from './geminiProvider';
+import {
+  ITutorProvider,
+  TextFeedbackResponse,
+  IPronunciationProvider,
+  PronunciationCoachingResponse,
+} from './types';
+import {
+  GeminiTutorProvider,
+  GeminiPronunciationProvider,
+  getStoredGeminiApiKey,
+} from './geminiProvider';
 
 /**
  * Phase 1 Local Tutor Provider.
@@ -30,7 +39,36 @@ export class ExampleTutorProvider implements ITutorProvider {
   }
 }
 
+/**
+ * Local Fallback Pronunciation Provider when Gemini key is not provided.
+ */
+export class ExamplePronunciationProvider implements IPronunciationProvider {
+  async getPronunciationFeedback(
+    targetSentence: string,
+    _spokenTranscript: string,
+    problemWords: string[]
+  ): Promise<PronunciationCoachingResponse> {
+    return {
+      source: 'example',
+      overallRating:
+        problemWords.length === 0
+          ? 'ออกเสียงได้ชัดเจนครบถ้วน'
+          : 'คำแนะนำการฝึกออกเสียงตามเกณฑ์สัทศาสตร์',
+      pacingAndIntonationTh:
+        'คำภาษาอังกฤษที่มีหลายพยางค์ ให้เน้นเสียงหนัก (Stress) ที่พยางค์หลัก และเชื่อมเสียงพยัญชนะท้ายคำกับสระถัดไปเสมอ',
+      problemWordsTips: problemWords.slice(0, 3).map((w) => ({
+        word: w,
+        phoneticGuideTh: w,
+        tipTh: 'ฝึกฟังเสียงต้นแบบด้วยความเร็ว 0.75x และสังเกตการเปิดปากและรูปฟัน',
+      })),
+      practiceSentence: targetSentence,
+    };
+  }
+}
+
 export const defaultTutorProvider: ITutorProvider = new ExampleTutorProvider();
+export const defaultPronunciationProvider: IPronunciationProvider =
+  new ExamplePronunciationProvider();
 
 /**
  * Returns GeminiTutorProvider if an API key is saved in localStorage,
@@ -44,6 +82,18 @@ export function getActiveTutorProvider(): ITutorProvider {
   return defaultTutorProvider;
 }
 
-export { GeminiTutorProvider };
+/**
+ * Returns GeminiPronunciationProvider if an API key is saved in localStorage,
+ * otherwise falls back seamlessly to ExamplePronunciationProvider.
+ */
+export function getActivePronunciationProvider(): IPronunciationProvider {
+  const apiKey = getStoredGeminiApiKey();
+  if (apiKey) {
+    return new GeminiPronunciationProvider(apiKey);
+  }
+  return defaultPronunciationProvider;
+}
+
+export { GeminiTutorProvider, GeminiPronunciationProvider };
 export * from './types';
 export * from './geminiProvider';

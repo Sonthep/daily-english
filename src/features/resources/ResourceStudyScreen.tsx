@@ -9,6 +9,9 @@ import { LearningResource, ResourceSentence, TargetPhrase } from '../../types';
 import { phraseRepo } from '../../lib/storage/repositories';
 import { speechService } from '../../lib/audio/speech';
 import { AudioRecorder, RecorderError } from '../../lib/audio/recorder';
+import { speechRecognitionService } from '../../lib/audio/recognition';
+import { evaluatePronunciation, PronunciationScoreResult } from '../../lib/audio/pronunciationMatcher';
+import { PronunciationFeedbackCard } from '../../components/audio/PronunciationFeedbackCard';
 import { createNewPhrase } from '../../lib/review/scheduler';
 import { formatDurationThai } from '../../lib/review/dateUtils';
 import { getResourceTypeLabel } from '../../lib/resources/mediaUtils';
@@ -47,6 +50,8 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
   const [recordState, setRecordState] = useState<'idle' | 'recording' | 'recorded' | 'playing'>('idle');
   const [recordAudioUrl, setRecordAudioUrl] = useState<string | null>(null);
   const [micError, setMicError] = useState<RecorderError | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const [pronunciationResults, setPronunciationResults] = useState<Record<string, PronunciationScoreResult>>({});
 
   // Saved Phrases state
   const [savedPhraseIds, setSavedPhraseIds] = useState<Set<string>>(new Set());
@@ -71,6 +76,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
     return () => {
       clearInterval(interval);
       speechService.stop();
+      speechRecognitionService.abort();
       recorder.cleanup();
     };
   }, [recorder]);
@@ -91,9 +97,15 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
   const handleStartShadowing = async (sentenceId: string) => {
     setMicError(null);
     setActiveRecordSentenceId(sentenceId);
+    setLiveTranscript('');
     const res = await recorder.start();
     if (res.success) {
       setRecordState('recording');
+      speechRecognitionService.start({
+        lang: 'en-US',
+        onInterim: (text) => setLiveTranscript(text),
+        onFinal: (text) => setLiveTranscript(text),
+      });
     } else if (res.error) {
       setMicError(res.error);
       setRecordState('idle');
@@ -102,8 +114,22 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
 
   const handleStopShadowing = async () => {
     const url = await recorder.stop();
+    const finalTranscript = speechRecognitionService.stop() || liveTranscript;
     setRecordAudioUrl(url);
     setRecordState('recorded');
+
+    if (activeRecordSentenceId) {
+      const targetSentence = resource.sentences.find(
+        (s: ResourceSentence) => s.id === activeRecordSentenceId
+      );
+      if (targetSentence) {
+        const evaluation = evaluatePronunciation(targetSentence.en, finalTranscript || '');
+        setPronunciationResults((prev) => ({
+          ...prev,
+          [activeRecordSentenceId]: evaluation,
+        }));
+      }
+    }
   };
 
   const handlePlayRecorded = () => {
@@ -117,8 +143,17 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
 
   const handleResetRecord = () => {
     recorder.cleanup();
+    speechRecognitionService.abort();
     setRecordAudioUrl(null);
     setRecordState('idle');
+    setLiveTranscript('');
+    if (activeRecordSentenceId) {
+      setPronunciationResults((prev) => {
+        const next = { ...prev };
+        delete next[activeRecordSentenceId];
+        return next;
+      });
+    }
     setActiveRecordSentenceId(null);
   };
 
@@ -430,8 +465,37 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                   </Button>
                 </div>
 
-                {/* In-Place Audio Recording Playback & Review for this sentence */}
-                {isRecordingThis && (recordState === 'recorded' || recordState === 'playing') && (
+                {/* In-Place Audio Recording Playback, Live Transcript & Evaluation */}
+                {isRecordingThis && recordState === 'recording' && liveTranscript && (
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--color-primary)',
+                      fontStyle: 'italic',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      backgroundColor: 'var(--color-primary-soft)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    ได้ยิน: "{liveTranscript}"
+                  </div>
+                )}
+
+                {isRecordingThis && pronunciationResults[st.id] && (
+                  <div style={{ marginTop: '8px' }}>
+                    <PronunciationFeedbackCard
+                      result={pronunciationResults[st.id]}
+                      recordedAudioUrl={recordAudioUrl}
+                      onPlayRecorded={handlePlayRecorded}
+                      isPlayingRecorded={recordState === 'playing'}
+                      onRetry={handleResetRecord}
+                      onRequestKeySetup={() => setIsNoKeyModalOpen(true)}
+                    />
+                  </div>
+                )}
+
+                {isRecordingThis && !pronunciationResults[st.id] && (recordState === 'recorded' || recordState === 'playing') && (
                   <div
                     style={{
                       marginTop: '6px',

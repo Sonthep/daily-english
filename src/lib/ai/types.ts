@@ -21,3 +21,25 @@ export interface ITutorProvider {
     sampleAnswer: string
   ): Promise<TextFeedbackResponse>;
 }
+
+export interface PronunciationProblemWordTip {
+  word: string;
+  phoneticGuideTh: string;
+  tipTh: string;
+}
+
+export interface PronunciationCoachingResponse {
+  source: 'example' | 'ai';
+  overallRating: string;
+  pacingAndIntonationTh: string;
+  problemWordsTips: PronunciationProblemWordTip[];
+  practiceSentence: string;
+}
+
+export interface IPronunciationProvider {
+  getPronunciationFeedback(
+    targetSentence: string,
+    spokenTranscript: string,
+    problemWords: string[]
+  ): Promise<PronunciationCoachingResponse>;
+}

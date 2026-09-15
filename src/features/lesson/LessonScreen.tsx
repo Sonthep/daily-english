@@ -18,6 +18,9 @@ import {
 } from '../../lib/storage/repositories';
 import { speechService } from '../../lib/audio/speech';
 import { AudioRecorder, RecorderError } from '../../lib/audio/recorder';
+import { speechRecognitionService } from '../../lib/audio/recognition';
+import { evaluatePronunciation, PronunciationScoreResult } from '../../lib/audio/pronunciationMatcher';
+import { PronunciationFeedbackCard } from '../../components/audio/PronunciationFeedbackCard';
 import { calculateNextReview, createNewPhrase } from '../../lib/review/scheduler';
 import { formatDurationThai } from '../../lib/review/dateUtils';
 import { getActiveTutorProvider, getStoredGeminiApiKey, setStoredGeminiApiKey } from '../../lib/ai/provider';
@@ -73,6 +76,8 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const [recordAudioUrl, setRecordAudioUrl] = useState<string | null>(null);
   const [micError, setMicError] = useState<RecorderError | null>(null);
   const [typedFallbackText, setTypedFallbackText] = useState<string>('');
+  const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const [pronunciationResults, setPronunciationResults] = useState<Record<number, PronunciationScoreResult>>({});
 
   // Use It State
   const [showSampleAnswer, setShowSampleAnswer] = useState<boolean>(false);
@@ -149,6 +154,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     return () => {
       isMounted = false;
       speechService.stop();
+      speechRecognitionService.abort();
       recorder.cleanup();
     };
   }, [lesson.id, initialModeMinutes]);
@@ -224,9 +230,15 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   // Recording Helpers
   const handleStartRecord = async () => {
     setMicError(null);
+    setLiveTranscript('');
     const res = await recorder.start();
     if (res.success) {
       setRecordState('recording');
+      speechRecognitionService.start({
+        lang: 'en-US',
+        onInterim: (text) => setLiveTranscript(text),
+        onFinal: (text) => setLiveTranscript(text),
+      });
     } else if (res.error) {
       setMicError(res.error);
       setRecordState('idle');
@@ -235,8 +247,28 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
   const handleStopRecord = async () => {
     const url = await recorder.stop();
+    const finalTranscript = speechRecognitionService.stop() || liveTranscript;
     setRecordAudioUrl(url);
     setRecordState('recorded');
+
+    const target = activeSentences[itemIndex]?.en;
+    if (target) {
+      const evaluation = evaluatePronunciation(target, finalTranscript || '');
+      setPronunciationResults((prev) => ({
+        ...prev,
+        [itemIndex]: evaluation,
+      }));
+    }
+  };
+
+  const handleEvaluateTyped = () => {
+    const target = activeSentences[itemIndex]?.en;
+    if (!target || !typedFallbackText.trim()) return;
+    const evaluation = evaluatePronunciation(target, typedFallbackText.trim());
+    setPronunciationResults((prev) => ({
+      ...prev,
+      [itemIndex]: evaluation,
+    }));
   };
 
   const handlePlayRecorded = () => {
@@ -293,9 +325,16 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
   const handleResetRecord = () => {
     recorder.cleanup();
+    speechRecognitionService.abort();
     setRecordAudioUrl(null);
     setRecordState('idle');
     setMicError(null);
+    setLiveTranscript('');
+    setPronunciationResults((prev) => {
+      const next = { ...prev };
+      delete next[itemIndex];
+      return next;
+    });
   };
 
   // Review Helpers
@@ -780,6 +819,24 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                         กำลังอัดเสียง... พูดตามประโยคได้เลย
                       </span>
                     </div>
+
+                    {liveTranscript && (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--color-primary)',
+                          fontStyle: 'italic',
+                          textAlign: 'center',
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          backgroundColor: 'var(--color-primary-soft)',
+                          maxWidth: '400px',
+                        }}
+                      >
+                        ได้ยิน: "{liveTranscript}"
+                      </div>
+                    )}
+
                     <Button variant="danger" size="lg" onClick={handleStopRecord}>
                       <Square size={18} /> หยุดอัดเสียง
                     </Button>
@@ -804,6 +861,20 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               </div>
             )}
 
+            {/* Pronunciation Feedback Card Display */}
+            {pronunciationResults[itemIndex] && (
+              <div style={{ width: '100%', marginTop: '4px' }}>
+                <PronunciationFeedbackCard
+                  result={pronunciationResults[itemIndex]}
+                  recordedAudioUrl={recordAudioUrl}
+                  onPlayRecorded={handlePlayRecorded}
+                  isPlayingRecorded={recordState === 'playing'}
+                  onRetry={handleResetRecord}
+                  onRequestKeySetup={() => setIsNoKeyModalOpen(true)}
+                />
+              </div>
+            )}
+
             {/* Typed Fallback Input (Always available or when mic denied) */}
             <div style={{ width: '100%', borderTop: !micError ? '1px solid var(--color-border)' : 'none', paddingTop: !micError ? 'var(--space-md)' : 0 }}>
               <label
@@ -812,22 +883,38 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               >
                 ฝึกพิมพ์ตอบตามประโยค (Typed Fallback):
               </label>
-              <input
-                id="typed-repeat-input"
-                type="text"
-                value={typedFallbackText}
-                onChange={(e) => setTypedFallbackText(e.target.value)}
-                placeholder="พิมพ์ประโยคตามที่เห็นด้านบน..."
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-control)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: '#FFFFFF',
-                  outline: 'none',
-                  fontSize: 'var(--font-size-sm)',
-                }}
-              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  id="typed-repeat-input"
+                  type="text"
+                  value={typedFallbackText}
+                  onChange={(e) => setTypedFallbackText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && typedFallbackText.trim()) {
+                      e.preventDefault();
+                      handleEvaluateTyped();
+                    }
+                  }}
+                  placeholder="พิมพ์ประโยคตามที่เห็นด้านบน..."
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-control)',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: '#FFFFFF',
+                    outline: 'none',
+                    fontSize: 'var(--font-size-sm)',
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleEvaluateTyped}
+                  disabled={!typedFallbackText.trim()}
+                >
+                  ตรวจคำตอบ
+                </Button>
+              </div>
             </div>
           </div>
 
