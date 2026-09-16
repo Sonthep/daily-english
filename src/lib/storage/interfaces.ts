@@ -17,6 +17,8 @@ export interface IProfileRepository {
 export interface ILessonRepository {
   getAllLessons(): Promise<Lesson[]>;
   getLessonById(id: string): Promise<Lesson | null>;
+  saveLesson(lesson: Lesson): Promise<void>;
+  deleteCustomLesson(id: string): Promise<void>;
   seedLessonsIfEmpty(): Promise<void>;
 }
 

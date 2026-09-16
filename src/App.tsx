@@ -188,6 +188,7 @@ export const App: React.FC = () => {
         <ResourceStudyScreen
           resource={currentResource}
           onExit={() => navigateTo({ path: 'resources' })}
+          onStartLesson={handleStartLesson}
         />
       )}
 

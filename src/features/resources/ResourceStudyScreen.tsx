@@ -31,18 +31,22 @@ import {
   Sparkles,
   Key,
 } from 'lucide-react';
+import { GenerateLessonModal } from '../../components/resources/GenerateLessonModal';
 
 export interface ResourceStudyScreenProps {
   resource: LearningResource;
   onExit: () => void;
+  onStartLesson?: (lessonId: string, durationMinutes: 5 | 15) => void;
 }
 
 export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
   resource,
   onExit,
+  onStartLesson,
 }) => {
   const [activeSeconds, setActiveSeconds] = useState(0);
   const [playingSentenceId, setPlayingSentenceId] = useState<string | null>(null);
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
 
   // Shadowing Audio State per sentence
   const [recorder] = useState<AudioRecorder>(() => new AudioRecorder());
@@ -239,6 +243,20 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
         </Button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsGenerateModalOpen(true)}
+            style={{
+              borderColor: 'var(--color-primary)',
+              color: 'var(--color-primary)',
+              backgroundColor: '#EFF5F2',
+              fontWeight: 600,
+            }}
+          >
+            <Sparkles size={14} />
+            <span>สร้างบทเรียน AI</span>
+          </Button>
           <Badge variant="primary">{getResourceTypeLabel(resource.type)}</Badge>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Clock size={13} /> {formatDurationThai(activeSeconds)}
@@ -544,7 +562,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
               gap: 'var(--space-sm)',
             }}
           >
@@ -767,6 +785,20 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           </Button>
         </Card>
       )}
+
+      {/* AI Lesson Generator Modal */}
+      <GenerateLessonModal
+        isOpen={isGenerateModalOpen}
+        onClose={() => setIsGenerateModalOpen(false)}
+        resource={resource}
+        onLessonCreated={(lesson, startImmediately) => {
+          if (startImmediately) {
+            onStartLesson?.(lesson.id, 5);
+          } else {
+            setToastMessage(`บันทึกบทเรียน "${lesson.titleTh}" ลงในคลังเรียบร้อยแล้ว`);
+          }
+        }}
+      />
 
       {/* Toast Notification */}
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}

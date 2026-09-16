@@ -16,6 +16,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       disabled = false,
       className = '',
       children,
+      style,
       ...props
     },
     ref
@@ -79,7 +80,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled}
-        style={{ ...baseStyles, ...variantStyles[variant] }}
+        style={{ ...baseStyles, ...variantStyles[variant], ...style }}
         className={`custom-btn ${className}`}
         {...props}
       >

@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Lesson, Session, LessonCategory } from '../../types';
 import { lessonRepo, sessionRepo } from '../../lib/storage/repositories';
-import { Search, Play, RotateCcw, CheckCircle, Sparkles, BookOpen } from 'lucide-react';
+import { Search, Play, RotateCcw, CheckCircle, Sparkles, BookOpen, Trash2 } from 'lucide-react';
 
 export interface PracticeScreenProps {
   onStartLesson: (lessonId: string, durationMinutes: 5 | 15) => void;
@@ -38,7 +38,20 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
     'Design & Marketing',
     'Daily Life',
     'Gaming',
+    'Custom AI',
   ];
+
+  const handleDeleteLesson = async (lessonId: string, titleTh: string) => {
+    if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบบทเรียน "${titleTh}"?`)) {
+      try {
+        await lessonRepo.deleteCustomLesson(lessonId);
+        setLessons((prev) => prev.filter((l) => l.id !== lessonId));
+      } catch (err) {
+        console.error('Failed to delete lesson', err);
+        alert('ไม่สามารถลบบทเรียนนี้ได้');
+      }
+    }
+  };
 
   // Map lesson status
   const getLessonStatus = (lessonId: string): 'not_started' | 'in_progress' | 'completed' => {
@@ -101,7 +114,8 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
             style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
           />
           <input
-            type="text"
+            type="search"
+            aria-label="ค้นหาบทเรียน"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาชื่อบทเรียน หรือทักษะที่ต้องการฝึก..."
@@ -111,7 +125,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
               borderRadius: 'var(--radius-control)',
               border: '1px solid var(--color-border)',
               backgroundColor: '#FFFFFF',
-              outline: 'none',
+
               fontSize: 'var(--font-size-base)',
             }}
           />
@@ -119,7 +133,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
 
         {/* Category Tabs */}
         <div
-          role="tablist"
+          role="group"
           aria-label="ตัวกรองหมวดหมู่บทเรียน"
           style={{
             display: 'flex',
@@ -137,13 +151,15 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
                 ? 'งานดีไซน์ & การตลาด'
                 : cat === 'Daily Life'
                 ? 'ชีวิตประจำวัน'
-                : 'เกม & การเล่นเป็นทีม';
+                : cat === 'Gaming'
+                ? 'เกม & การเล่นเป็นทีม'
+                : 'สร้างโดย AI';
 
             return (
               <button
                 key={cat}
-                role="tab"
-                aria-selected={isSelected}
+
+                aria-pressed={isSelected}
                 onClick={() => setSelectedCategory(cat)}
                 style={{
                   padding: '8px 16px',
@@ -155,7 +171,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
                   fontSize: 'var(--font-size-sm)',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
-                  minHeight: '38px',
+                  minHeight: 'var(--touch-target-min)',
                   transition: 'all var(--transition-smooth)',
                 }}
               >
@@ -166,6 +182,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
         </div>
       </div>
 
+      <p className="muted" role="status">พบ {filteredLessons.length} บทเรียน</p>
       {/* Lesson List */}
       {filteredLessons.length === 0 ? (
         <EmptyState
@@ -179,7 +196,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))',
             gap: 'var(--space-base)',
           }}
         >
@@ -208,9 +225,32 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
                       gap: '8px',
                     }}
                   >
-                    <Badge variant="primary" icon={<Sparkles size={12} />}>
-                      {lesson.category}
-                    </Badge>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Badge variant={lesson.isAiGenerated ? 'accent' : 'primary'} icon={<Sparkles size={12} />}>
+                        {lesson.isAiGenerated ? 'สร้างโดย AI' : lesson.category}
+                      </Badge>
+                      {lesson.isAiGenerated && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLesson(lesson.id, lesson.titleTh);
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: 'var(--color-text-muted)',
+                            cursor: 'pointer',
+                            padding: '2px 4px',
+                            borderRadius: 'var(--radius-control)',
+                          }}
+                          title="ลบบทเรียนนี้"
+                          aria-label={`ลบบทเรียน ${lesson.titleTh}`}
+                        >
+                          <Trash2 size={14} color="var(--color-text-muted)" />
+                        </button>
+                      )}
+                    </div>
 
                     {/* Status Badge */}
                     {status === 'completed' && (

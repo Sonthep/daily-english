@@ -23,7 +23,10 @@ import {
   EyeOff,
   ExternalLink,
   Key,
+  Smartphone,
+  Wifi,
 } from 'lucide-react';
+import { usePwaInstall } from '../../lib/pwa/usePwaInstall';
 
 export interface SettingsScreenProps {
   onProfileUpdated: () => void;
@@ -52,6 +55,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
   // Reset Confirmation Modal
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetConfirmationText, setResetConfirmationText] = useState('');
+
+  // PWA State
+  const { canInstall, isInstalled, isOfflineReady, promptInstall } = usePwaInstall();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -476,6 +482,46 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
             </div>
           </div>
         </form>
+      </Card>
+
+      {/* PWA & Offline Support Card */}
+      <Card padding="lg">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Smartphone size={18} color="var(--color-primary)" />
+            <h2 style={{ fontSize: 'var(--font-size-lg)', color: 'var(--color-text)' }}>
+              แอปพลิเคชัน & การใช้งานออฟไลน์ (PWA)
+            </h2>
+          </div>
+          {isInstalled ? (
+            <Badge variant="success">ติดตั้งแล้ว (Installed)</Badge>
+          ) : canInstall ? (
+            <Badge variant="primary">พร้อมติดตั้ง</Badge>
+          ) : (
+            <Badge variant="neutral">เบราว์เซอร์</Badge>
+          )}
+        </div>
+
+        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-md)', lineHeight: 1.5 }}>
+          Daily English รองรับมาตรฐาน Progressive Web App (PWA) คุณสามารถติดตั้งเป็นแอปบนมือถือหรือเดสก์ท็อป เพื่อเปิดใช้งานได้ทันทีแม้ไม่มีอินเทอร์เน็ต
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: canInstall ? 'var(--space-md)' : 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text)' }}>
+            <Wifi size={14} color="var(--color-primary)" />
+            <span>สถานะระบบแคชออฟไลน์: {isOfflineReady ? 'พร้อมใช้งานแบบออฟไลน์ 100%' : 'กำลังเตรียมระบบ Service Worker'}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text)' }}>
+            <Smartphone size={14} color="var(--color-primary)" />
+            <span>สถานะการติดตั้ง: {isInstalled ? 'เปิดในโหมดแอปพลิเคชัน (Standalone)' : 'กำลังเปิดผ่านเบราว์เซอร์'}</span>
+          </div>
+        </div>
+
+        {canInstall && (
+          <Button variant="primary" onClick={() => promptInstall()}>
+            <Smartphone size={16} /> ติดตั้ง Daily English ลงเครื่อง
+          </Button>
+        )}
       </Card>
 
       {/* Backup & Restore Card */}

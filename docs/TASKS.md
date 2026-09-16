@@ -64,11 +64,36 @@
 
 ---
 
+## UX/UI refresh — 2026-09-16
+
+- [x] จัดหน้า Today ใหม่: บทเรียนเด่น เลือกเวลา 5/15 นาที ขั้นตอนฝึก คลังวลี และกิจกรรม 7 วันจากข้อมูลจริง
+- [x] ปรับโทนครีม–เขียว เมนูภาษาไทย สถานะหน้าปัจจุบัน และปุ่มข้ามไปเนื้อหาสำหรับคีย์บอร์ด
+- [x] แก้เมนูที่หายบนแท็บเล็ตและกริดที่กว้างเกินหน้าจอมือถือ
+- [x] เขียน Unit Tests ครอบคลุม 14 Test Suites (65 tests ผ่าน 100%):
+  - Spaced Repetition Scheduler
+  - Active Timer pause on visibility hidden
+  - Storage/Import validation
+  - Idempotency
+  - Seed lessons integrity
+  - Media & YouTube ID utils
+  - Bulk text & Subtitle parser
+  - AI Coach Gemini Provider & fallback parser
+  - Pronunciation Matcher (Offline Levenshtein & Word Alignment)
+  - Pronunciation AI Coach (Gemini BYOK & Offline Heuristics)
+  - Date & Timezone utils
+  - UI Layout and responsive design
+  - AI Lesson Generator from Resources
+  - Custom Lessons & Repository Storage
+- [x] ทดสอบความเข้ากันได้ของ Responsive Layout ที่ 375px, 768px, และ 1440px
+- [x] ตรวจสอบ Accessibility (Focus ring, Touch target >= 44px, Contrast, Reduced motion)
+- [x] รัน `npm test` และ `npm run build` ตรวจสอบ 0 errors (ผ่าน 100%)
+
+---
+
 ## 🔮 Future Roadmap (สิ่งที่พัฒนาต่อได้ในอนาคต)
 
 - [x] **Speech-to-Text & Word Match**: ใช้ Web Speech API ถอดเสียงที่ผู้ใช้อัดเทียบกับประโยคต้นฉบับ คำนวณ Accuracy Score และไฮไลต์คำชัดเจน/ใกล้เคียง/ตกหล่น พร้อม AI Pronunciation Evaluation
-- [ ] **PWA (Progressive Web App)**: สร้าง Web Manifest และ Service Worker ให้ติดตั้งลงในมือถือ/เดสก์ท็อปและใช้งานแบบ Offline ได้
-- [ ] **AI Lesson Generator from Resources**: สกัดเนื้อหาจากคลิป YouTube หรือเนื้อเพลงที่ผู้ใช้แนบให้กลายเป็นบทเรียนฝึก 4 ขั้นตอนอัตโนมัติ
+- [x] **PWA (Progressive Web App)**: สร้าง Web Manifest และ Service Worker ให้ติดตั้งลงในมือถือ/เดสก์ท็อปและใช้งานแบบ Offline ได้ พร้อมปุ่มแจ้งเตือนการติดตั้ง
+- [x] **AI Lesson Generator from Resources**: สกัดเนื้อหาจากคลิป YouTube หรือเนื้อเพลงที่ผู้ใช้แนบให้กลายเป็นบทเรียนฝึก 5 ขั้นตอนอัตโนมัติ พร้อมบันทึกเข้าสู่คลังบทเรียนและเริ่มเรียนได้ทันที
 - [ ] **Multi-Provider BYOK**: รองรับ OpenAI (GPT-4o-mini), Anthropic (Claude 3.5 Haiku) และ Local Ollama เพิ่มเติม
 - [ ] **Cloud Sync (Optional Phase 3)**: ระบบ Sync ข้อมูลข้ามอุปกรณ์ผ่าน Secure Backend Proxy สำหรับผู้ใช้ที่ต้องการใช้งานหลายเครื่องพร้อมกัน
-

@@ -9,11 +9,11 @@ export interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ currentRoute, onNavigate }) => {
   const navItems = [
-    { id: 'today', label: 'Today', icon: Calendar },
-    { id: 'practice', label: 'Practice', icon: BookOpen },
-    { id: 'resources', label: 'Media', icon: Video },
-    { id: 'phrases', label: 'Phrases', icon: Bookmark },
-    { id: 'progress', label: 'Progress', icon: BarChart3 },
+    { id: 'today', label: 'วันนี้', icon: Calendar },
+    { id: 'practice', label: 'บทเรียน', icon: BookOpen },
+    { id: 'resources', label: 'สื่อฝึก', icon: Video },
+    { id: 'phrases', label: 'คลังวลี', icon: Bookmark },
+    { id: 'progress', label: 'ความก้าวหน้า', icon: BarChart3 },
   ];
 
   return (
@@ -41,6 +41,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentRoute, onNavigate }
         return (
           <button
             key={item.id}
+                aria-current={isActive ? 'page' : undefined}
+                className="nav-item"
             onClick={() => onNavigate({ path: item.id as any })}
             style={{
               display: 'flex',

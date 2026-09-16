@@ -1,4 +1,4 @@
-export type LessonCategory = 'Design & Marketing' | 'Daily Life' | 'Gaming';
+export type LessonCategory = 'Design & Marketing' | 'Daily Life' | 'Gaming' | 'Custom AI';
 
 export type LessonStep = 'listen' | 'repeat' | 'use_it' | 'review' | 'summary';
 
@@ -47,6 +47,13 @@ export interface Lesson {
   prompts: LessonPrompt[];
   targetPhrases: TargetPhrase[];
   createdAt: string;
+  isAiGenerated?: boolean;
+  sourceResourceId?: string;
+}
+
+export interface LessonGenerationOptions {
+  targetDurationMinutes: 5 | 15;
+  customFocus?: string;
 }
 
 export interface UserAnswer {
@@ -120,6 +127,7 @@ export interface DatabaseExport {
   phrases: Phrase[];
   reviewEvents: ReviewEvent[];
   resources?: LearningResource[];
+  customLessons?: Lesson[];
 }
 
 export type AppRoute =

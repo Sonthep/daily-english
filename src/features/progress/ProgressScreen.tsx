@@ -98,7 +98,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ onNavigate }) =>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
           gap: 'var(--space-md)',
         }}
       >

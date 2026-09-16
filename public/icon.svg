@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2A6B5C"/>
+      <stop offset="100%" stop-color="#1B473D"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0F2822" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <!-- App Icon Background Squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle circular halo -->
+  <circle cx="256" cy="256" r="160" fill="#E7F0EA" opacity="0.08"/>
+  
+  <!-- Daily English Emblem -->
+  <g filter="url(#shadow)">
+    <!-- Speech bubble & open leaf motif -->
+    <path d="M168 304 C168 224 216 176 288 176 C328 176 352 196 364 224" stroke="#F8F9F5" stroke-width="32" stroke-linecap="round" fill="none"/>
+    <path d="M168 304 C168 352 208 376 264 376 C312 376 348 352 360 316" stroke="#F7E8D7" stroke-width="32" stroke-linecap="round" fill="none"/>
+    <!-- Focus spark / sound dot -->
+    <circle cx="216" cy="256" r="22" fill="#F8F9F5"/>
+    <circle cx="312" cy="256" r="22" fill="#F7E8D7"/>
+    <!-- Small star sparkle top right -->
+    <path d="M370 140 L378 160 L398 168 L378 176 L370 196 L362 176 L342 168 L362 160 Z" fill="#F7E8D7" opacity="0.9"/>
+  </g>
+</svg>

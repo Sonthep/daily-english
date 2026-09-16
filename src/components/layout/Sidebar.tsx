@@ -14,15 +14,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   profile,
 }) => {
   const navItems = [
-    { id: 'today', label: 'Today', icon: Calendar },
-    { id: 'practice', label: 'Practice', icon: BookOpen },
-    { id: 'resources', label: 'Resources', icon: Video },
-    { id: 'phrases', label: 'My Phrases', icon: Bookmark },
-    { id: 'progress', label: 'Progress', icon: BarChart3 },
+    { id: 'today', label: 'วันนี้', icon: Calendar },
+    { id: 'practice', label: 'บทเรียน', icon: BookOpen },
+    { id: 'resources', label: 'สื่อฝึก', icon: Video },
+    { id: 'phrases', label: 'คลังวลี', icon: Bookmark },
+    { id: 'progress', label: 'ความก้าวหน้า', icon: BarChart3 },
   ];
 
   return (
-    <aside
+    <aside className="sidebar"
       style={{
         width: 'var(--sidebar-width)',
         backgroundColor: 'var(--color-surface)',
@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         flexDirection: 'column',
         justifyContent: 'space-between',
         padding: 'var(--space-lg) var(--space-md)',
-        height: '100vh',
+        height: '100dvh',
         position: 'sticky',
         top: 0,
         flexShrink: 0,
@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Top brand */}
       <div>
-        <div
+        <button className="brand-button"
           onClick={() => onNavigate({ path: 'today' })}
           style={{
             display: 'flex',
@@ -59,8 +59,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ฝึกวันละ 5 หรือ 15 นาที
             </div>
           </div>
-        </div>
+        </button>
 
+        <p className="nav-caption">พื้นที่เรียนรู้ของคุณ</p>
         {/* Navigation list */}
         <nav aria-label="เมนูหลัก" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {navItems.map((item) => {
@@ -69,6 +70,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <button
                 key={item.id}
+                aria-current={isActive ? 'page' : undefined}
+                className="nav-item"
                 onClick={() => onNavigate({ path: item.id as any })}
                 style={{
                   display: 'flex',
@@ -96,6 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
+      <div className="sidebar-note"><BookOpen size={24} /><p>เก่งขึ้นทีละนิด<br /><strong>ในจังหวะของคุณเอง</strong></p><span>แค่เริ่ม ก็เป็นก้าวที่ดีแล้ว</span></div>
       {/* Profile & Settings area at bottom */}
       <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-md)' }}>
         <button

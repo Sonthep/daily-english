@@ -75,6 +75,20 @@ export class LessonRepository implements ILessonRepository {
     return lesson || null;
   }
 
+  async saveLesson(lesson: Lesson): Promise<void> {
+    const db = await getDatabase();
+    await db.put('lessons', lesson);
+  }
+
+  async deleteCustomLesson(id: string): Promise<void> {
+    const seedIds = ['lesson-1', 'lesson-2', 'lesson-3'];
+    if (seedIds.includes(id)) {
+      throw new Error('ไม่สามารถลบบทเรียนหลักของระบบได้');
+    }
+    const db = await getDatabase();
+    await db.delete('lessons', id);
+  }
+
   async seedLessonsIfEmpty(): Promise<void> {
     const db = await getDatabase();
     const count = await db.count('lessons');
@@ -247,6 +261,7 @@ export class ResourceRepository implements IResourceRepository {
 
 export class StorageService implements IStorageService {
   private profileRepo = new ProfileRepository();
+  private lessonRepo = new LessonRepository();
   private sessionRepo = new SessionRepository();
   private phraseRepo = new PhraseRepository();
   private reviewRepo = new ReviewRepository();
@@ -258,6 +273,8 @@ export class StorageService implements IStorageService {
     const phrases = await this.phraseRepo.getAllPhrases();
     const reviewEvents = await this.reviewRepo.getAllReviewEvents();
     const resources = await this.resourceRepo.getAllResources();
+    const allLessons = await this.lessonRepo.getAllLessons();
+    const customLessons = allLessons.filter((l) => l.isAiGenerated);
 
     return {
       schemaVersion: 2,
@@ -267,6 +284,7 @@ export class StorageService implements IStorageService {
       phrases,
       reviewEvents,
       resources,
+      customLessons,
     };
   }
 
@@ -302,6 +320,10 @@ export class StorageService implements IStorageService {
         return { valid: false, error: 'ข้อมูล resources ต้องอยู่ในรูปแบบ Array' };
       }
 
+      if (parsed.customLessons && !Array.isArray(parsed.customLessons)) {
+        return { valid: false, error: 'ข้อมูล customLessons ต้องอยู่ในรูปแบบ Array' };
+      }
+
       return { valid: true, data: parsed as DatabaseExport };
     } catch (err: unknown) {
       return {
@@ -316,7 +338,7 @@ export class StorageService implements IStorageService {
 
     // Perform atomic transaction
     const tx = db.transaction(
-      ['profiles', 'sessions', 'phrases', 'review_events', 'resources'],
+      ['profiles', 'sessions', 'phrases', 'review_events', 'resources', 'lessons'],
       'readwrite'
     );
 
@@ -325,6 +347,7 @@ export class StorageService implements IStorageService {
     await tx.objectStore('phrases').clear();
     await tx.objectStore('review_events').clear();
     await tx.objectStore('resources').clear();
+    await tx.objectStore('lessons').clear();
 
     if (data.profile) {
       await tx.objectStore('profiles').put(data.profile);
@@ -341,6 +364,12 @@ export class StorageService implements IStorageService {
     for (const res of data.resources || []) {
       await tx.objectStore('resources').put(res);
     }
+    for (const seed of SEED_LESSONS) {
+      await tx.objectStore('lessons').put(seed);
+    }
+    for (const custom of data.customLessons || []) {
+      await tx.objectStore('lessons').put(custom);
+    }
 
     await tx.done;
   }
@@ -348,7 +377,7 @@ export class StorageService implements IStorageService {
   async resetDatabase(): Promise<void> {
     const db = await getDatabase();
     const tx = db.transaction(
-      ['profiles', 'sessions', 'phrases', 'review_events', 'resources'],
+      ['profiles', 'sessions', 'phrases', 'review_events', 'resources', 'lessons'],
       'readwrite'
     );
 
@@ -357,13 +386,16 @@ export class StorageService implements IStorageService {
     await tx.objectStore('phrases').clear();
     await tx.objectStore('review_events').clear();
     await tx.objectStore('resources').clear();
+    await tx.objectStore('lessons').clear();
+
+    for (const seed of SEED_LESSONS) {
+      await tx.objectStore('lessons').put(seed);
+    }
 
     await tx.done;
 
-    // Re-initialize default profile, seed lessons and seed resources
+    // Re-initialize default profile and seed resources
     await this.profileRepo.initDefaultProfile();
-    const lessonRepo = new LessonRepository();
-    await lessonRepo.seedLessonsIfEmpty();
     await this.resourceRepo.seedResourcesIfEmpty();
   }
 }

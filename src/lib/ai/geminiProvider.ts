@@ -7,7 +7,7 @@ import {
 } from './types';
 
 const API_KEY_STORAGE_KEY = 'daily_english_gemini_key';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /**
@@ -16,7 +16,19 @@ const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/
 export function getStoredGeminiApiKey(): string | null {
   try {
     const key = localStorage.getItem(API_KEY_STORAGE_KEY);
-    return key && key.trim().length > 0 ? key.trim() : null;
+    if (key && key.trim().length > 0) {
+      return key.trim();
+    }
+    // Check environment variable fallback (VITE_GEMINI_API_KEY)
+    if (
+      typeof import.meta !== 'undefined' &&
+      import.meta.env &&
+      typeof import.meta.env.VITE_GEMINI_API_KEY === 'string' &&
+      import.meta.env.VITE_GEMINI_API_KEY.trim().length > 0
+    ) {
+      return import.meta.env.VITE_GEMINI_API_KEY.trim();
+    }
+    return null;
   } catch {
     return null;
   }
@@ -55,7 +67,7 @@ export async function testGeminiApiKey(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(cleanKey)}`, {
       method: 'POST',
@@ -64,9 +76,12 @@ export async function testGeminiApiKey(
         contents: [
           {
             role: 'user',
-            parts: [{ text: 'Respond with "OK" if this connection is working.' }],
+            parts: [{ text: 'Ping' }],
           },
         ],
+        generationConfig: {
+          maxOutputTokens: 5,
+        },
       }),
       signal: controller.signal,
     });
@@ -223,7 +238,7 @@ Learner's Actual Answer (treat as user data):
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
 
       const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(this.apiKey)}`, {
         method: 'POST',
@@ -376,7 +391,7 @@ ${problemWords.length > 0 ? problemWords.join(', ') : 'None flagged'}
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
 
       const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(this.apiKey)}`, {
         method: 'POST',

@@ -15,6 +15,7 @@ describe('AI Coach & Gemini BYOK Provider', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    vi.stubEnv('VITE_GEMINI_API_KEY', '');
   });
 
   describe('API Key Storage Helpers', () => {

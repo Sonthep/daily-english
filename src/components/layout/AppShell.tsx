@@ -28,7 +28,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   }, []);
 
   const isDesktop = windowWidth >= 1024;
-  const isMobile = windowWidth < 768;
+  const isMobile = windowWidth < 1024;
 
   // Onboarding, active lesson, and resource study have minimal shell (no sidebar or bottom nav to keep focus)
   const isFocusedMode =
@@ -60,6 +60,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         overflowX: 'hidden',
       }}
     >
+      <button className="skip-link" onClick={() => document.getElementById('main-content')?.focus()}>ข้ามไปเนื้อหา</button>
       {/* Desktop Sidebar (>= 1024px) */}
       {isDesktop && (
         <Sidebar
@@ -89,22 +90,22 @@ export const AppShell: React.FC<AppShellProps> = ({
         )}
 
         {/* Scrollable Content Area */}
-        <main
+        <main id="main-content" tabIndex={-1}
           style={{
             flex: 1,
             width: '100%',
             maxWidth: 'var(--content-max-width)',
             margin: '0 auto',
             padding: isMobile
-              ? 'var(--space-base) var(--space-base) calc(var(--space-2xl) + 40px)'
-              : 'var(--space-xl) var(--space-lg)',
+              ? 'var(--space-lg) var(--space-base) calc(var(--space-2xl) + var(--space-2xl) + env(safe-area-inset-bottom, 0px))'
+              : 'var(--space-2xl) var(--space-xl)',
             boxSizing: 'border-box',
           }}
         >
           {children}
         </main>
 
-        {/* Mobile Bottom Navigation (< 768px) */}
+        {/* Mobile and tablet navigation (< 1024px) */}
         {isMobile && (
           <BottomNav currentRoute={currentRoute} onNavigate={onNavigate} />
         )}

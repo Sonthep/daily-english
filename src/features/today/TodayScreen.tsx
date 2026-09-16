@@ -96,286 +96,72 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const hasIncompleteSession = !!activeSession;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
-      {/* Top Bar: Date, Greeting, and Duration Switcher */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 'var(--space-base)',
-        }}
-      >
+    <div className="today-page">
+      <header className="today-heading">
         <div>
-          <div
-            style={{
-              fontSize: 'var(--font-size-sm)',
-              color: 'var(--color-text-muted)',
-              marginBottom: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <CalendarCheck size={16} color="var(--color-primary)" />
-            {formatThaiDate(new Date(), profile?.timezone || 'Asia/Bangkok')}
-          </div>
-          <h1 style={{ fontSize: 'var(--font-size-2xl)', color: 'var(--color-text)', letterSpacing: '-0.01em' }}>
-            สวัสดี{greetingName} วันนี้ลองเล่างานที่ทำกัน
-          </h1>
+          <div className="eyebrow"><CalendarCheck size={15} /> {formatThaiDate(new Date(), profile?.timezone || 'Asia/Bangkok')}</div>
+          <h1>สวัสดี {greetingName}<span className="greeting-dot">.</span></h1>
+          <p className="muted">ให้ภาษาอังกฤษเป็นเรื่องเล็ก ๆ ที่ทำได้ทุกวัน</p>
         </div>
-
-        {/* 5 / 15 Minute Mode Switch */}
-        <div
-          role="group"
-          aria-label="เลือกระยะเวลาฝึกฝน"
-          style={{
-            display: 'inline-flex',
-            padding: '4px',
-            backgroundColor: '#EFF3F0',
-            borderRadius: 'var(--radius-control)',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          <button
-            onClick={() => handleDurationToggle(5)}
-            aria-pressed={durationMode === 5}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: durationMode === 5 ? '#FFFFFF' : 'transparent',
-              color: durationMode === 5 ? 'var(--color-primary)' : 'var(--color-text-muted)',
-              fontWeight: durationMode === 5 ? 600 : 400,
-              boxShadow: durationMode === 5 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              cursor: 'pointer',
-              fontSize: 'var(--font-size-sm)',
-              minHeight: '36px',
-              transition: 'all var(--transition-smooth)',
-            }}
-          >
-            5 นาที
-          </button>
-          <button
-            onClick={() => handleDurationToggle(15)}
-            aria-pressed={durationMode === 15}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: durationMode === 15 ? '#FFFFFF' : 'transparent',
-              color: durationMode === 15 ? 'var(--color-primary)' : 'var(--color-text-muted)',
-              fontWeight: durationMode === 15 ? 600 : 400,
-              boxShadow: durationMode === 15 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              cursor: 'pointer',
-              fontSize: 'var(--font-size-sm)',
-              minHeight: '36px',
-              transition: 'all var(--transition-smooth)',
-            }}
-          >
-            15 นาที
-          </button>
+        <div className="duration-picker">
+          <span className="eyebrow">วันนี้มีเวลาสักเท่าไหร่?</span>
+          <div className="segmented-control" role="group" aria-label="เลือกระยะเวลาฝึกฝน">
+            {([5, 15] as const).map(mode => <button key={mode} aria-pressed={durationMode === mode} onClick={() => handleDurationToggle(mode)}>{mode} นาที <span>{mode === 5 ? 'สั้น ๆ ก็ได้' : 'ฝึกเต็มที่'}</span></button>)}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Hero Card: 1-Click Start */}
-      <Card
-        variant="default"
-        padding="lg"
-        style={{
-          border: '1.5px solid var(--color-border)',
-          background: 'linear-gradient(135deg, #FFFFFF 0%, #F5FAF7 100%)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <Badge variant="primary" icon={<Sparkles size={13} />}>
-              {todayLesson.category}
-            </Badge>
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', fontWeight: 500 }}>
-              โหมดแนะนำ: {durationMode} นาที
-            </span>
-          </div>
-
-          <div>
-            <h2 style={{ fontSize: 'var(--font-size-xl)', color: 'var(--color-text)', marginBottom: '4px' }}>
-              {todayLesson.titleTh}
-            </h2>
-            <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--color-text-muted)', fontWeight: 400 }}>
-              {todayLesson.titleEn}
-            </div>
-          </div>
-
-          <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-text)', lineHeight: 1.6, maxWidth: '640px' }}>
-            {todayLesson.objectiveTh}
-          </p>
-
-          <div style={{ paddingTop: 'var(--space-sm)' }}>
-            <Button
-              size="lg"
-              onClick={() => onStartLesson(todayLesson.id, durationMode)}
-              style={{ padding: '14px 28px', fontSize: 'var(--font-size-md)' }}
-            >
-              {hasIncompleteSession ? (
-                <>
-                  <RotateCcw size={19} /> ฝึกต่อจากเดิม
-                </>
-              ) : (
-                <>
-                  <Play size={19} fill="currentColor" /> เริ่มฝึกวันนี้
-                </>
-              )}
+      <section className="lesson-hero" aria-labelledby="daily-lesson-title">
+        <div className="hero-content">
+          <div className="hero-kicker"><Sparkles size={16} /> บทเรียนสำหรับวันนี้ <span> / {todayLesson.category}</span></div>
+          <h2 id="daily-lesson-title">{todayLesson.titleTh}</h2>
+          <p className="hero-english">{todayLesson.titleEn}</p>
+          <p className="hero-objective">{todayLesson.objectiveTh}</p>
+          <div className="hero-actions">
+            <Button size="lg" className="hero-start" onClick={() => onStartLesson(todayLesson.id, durationMode)}>
+              {hasIncompleteSession ? <RotateCcw size={19} /> : <Play size={19} />} {hasIncompleteSession ? 'ฝึกต่อจากเดิม' : 'เริ่มฝึกวันนี้'} <ArrowRight size={18} />
             </Button>
+            <button className="hero-link" onClick={() => onNavigate({ path: 'practice' })}>เลือกบทเรียนอื่น</button>
           </div>
         </div>
-      </Card>
+        <div className="hero-illustration" aria-hidden="true">
+          <div className="illustration-orbit" />
+          <div className="phrase-paper"><span>Little by little.</span><strong>A little practice,<br />a little more<br /><em>confidence.</em></strong><div className="paper-rule" /><small>YOUR DAILY ENGLISH MOMENT</small></div>
+          <div className="audio-sticker"><Headphones size={23} /><span /><span /><span /><span /><span /></div>
+        </div>
+      </section>
 
-      {/* Secondary Section: 4 Steps Today, Due Phrases, and 7-Day Consistency */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: 'var(--space-lg)',
-        }}
-      >
-        {/* Left: 4 Steps of Today */}
-        <Card padding="md">
-          <h3 style={{ fontSize: 'var(--font-size-md)', marginBottom: 'var(--space-base)', color: 'var(--color-text)' }}>
-            ขั้นตอนฝึกประจำวัน (4 ขั้นตอน)
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {[
-              { step: 1, icon: Headphones, title: 'ฟัง (Listen)', desc: 'จับสำเนียงและความเร็ว ปรับ 0.75x/1x ได้' },
-              { step: 2, icon: Mic, title: 'พูดตาม (Repeat)', desc: 'อัดเสียงเพื่อฟังตัวเอง หรือพิมพ์ข้อความแทน' },
-              { step: 3, icon: MessageSquare, title: 'ใช้จริง (Use it)', desc: 'ตอบคำถามเรื่องของตัวเอง เทียบตัวอย่าง' },
-              { step: 4, icon: Bookmark, title: 'ทบทวน (Review)', desc: 'นึกคำศัพท์ก่อนเปิดเฉลย บันทึกเข้าคลัง' },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.step}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px',
-                    padding: '8px 10px',
-                    borderRadius: 'var(--radius-control)',
-                    backgroundColor: '#FAFCFA',
-                    border: '1px solid var(--color-border)',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--color-primary-soft)',
-                      color: 'var(--color-primary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Icon size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--color-text)' }}>
-                      {item.title}
-                    </div>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                      {item.desc}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      <section className="learning-path" aria-labelledby="path-title">
+        <div className="section-heading"><h2 id="path-title">ทีละขั้น ก็เก่งขึ้นได้</h2><span className="muted">4 ขั้นตอนสั้น ๆ ในบทเรียนเดียว</span></div>
+        <ol className="steps-grid">
+          {[
+            { icon: Headphones, title: 'ฟัง', en: 'Listen', desc: 'คุ้นกับเสียงและสำเนียง' },
+            { icon: Mic, title: 'พูดตาม', en: 'Repeat', desc: 'ลองพูดในจังหวะของคุณ' },
+            { icon: MessageSquare, title: 'ใช้จริง', en: 'Use it', desc: 'เล่าเรื่องด้วยคำของตัวเอง' },
+            { icon: Bookmark, title: 'ทบทวน', en: 'Review', desc: 'เก็บวลีไว้ใช้ในวันต่อไป' },
+          ].map((item, index) => <li key={item.en}><div className="step-top"><span className="step-icon"><item.icon size={21} /></span><span className="step-number">0{index + 1}</span></div><h3>{item.title} <span>{item.en}</span></h3><p>{item.desc}</p></li>)}
+        </ol>
+      </section>
+
+      <div className="today-bottom-grid">
+        <Card className="review-card">
+          <div className="section-heading"><span className="step-icon"><Bookmark size={21} /></span><Badge variant="accent">{duePhrases.length} วลี</Badge></div>
+          <h2>{duePhrases.length ? 'แวะทบทวนอีกนิด' : 'คลังวลีของคุณ'}</h2>
+          <p className="muted">{duePhrases.length ? 'วลีที่เคยเก็บไว้พร้อมให้คุณทบทวนแล้ว ค่อย ๆ นึก ไม่ต้องรีบ' : 'ยังไม่มีวลีที่ถึงกำหนดทบทวน เก็บวลีที่ชอบจากบทเรียนไว้ฝึกครั้งต่อไปได้เลย'}</p>
+          <Button variant="outline" fullWidth onClick={() => onNavigate({ path: 'phrases' })}>{duePhrases.length ? 'ไปทบทวนวลี' : 'เปิดคลังวลี'}<ArrowRight size={17} /></Button>
         </Card>
-
-        {/* Right Column: Due Phrases & 7-Day Consistency */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-          {/* Due Phrases Card */}
-          <Card padding="md" style={{ backgroundColor: duePhrases.length > 0 ? '#FAF7F2' : 'var(--color-surface)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--color-text)' }}>
-                วลีที่ถึงกำหนดทบทวน
-              </span>
-              <Badge variant={duePhrases.length > 0 ? 'accent' : 'neutral'}>
-                {duePhrases.length} วลี
-              </Badge>
-            </div>
-            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-md)' }}>
-              {duePhrases.length > 0
-                ? 'มีคำศัพท์/วลีที่นัดหมายไว้ตาม Spaced Repetition พร้อมให้คุณทบทวน'
-                : 'ยอดเยี่ยม! ยังไม่มีวลีที่ค้างทบทวนในตอนนี้ คุณสามารถฝึกบทเรียนเพื่อเก็บคำศัพท์ใหม่ได้'}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onNavigate({ path: 'phrases' })}
-              style={{ width: '100%', justifyContent: 'space-between' }}
-            >
-              <span>{duePhrases.length > 0 ? 'ไปที่คลังเพื่อทบทวน' : 'ดูคลังคำศัพท์ทั้งหมด'}</span>
-              <ArrowRight size={15} />
-            </Button>
-          </Card>
-
-          {/* 7-Day Consistency Dot Grid */}
-          <Card padding="md">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', color: 'var(--color-text)' }}>
-                ความต่อเนื่อง 7 วันล่าสุด
-              </span>
-              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                บันทึกตามจริง
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', textAlign: 'center' }}>
-              {past7Days.map((day) => {
-                const hasPractice = day.completedSessions > 0;
-                return (
-                  <div
-                    key={day.dateKey}
-                    style={{
-                      padding: '8px 4px',
-                      borderRadius: '8px',
-                      backgroundColor: day.isToday ? 'rgba(36, 92, 79, 0.08)' : 'transparent',
-                      border: day.isToday ? '1px solid var(--color-primary)' : '1px solid transparent',
-                    }}
-                  >
-                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
-                      {day.dayLabel}
-                    </div>
-                    <div
-                      style={{
-                        width: '28px',
-                        height: '28px',
-                        margin: '0 auto',
-                        borderRadius: '50%',
-                        backgroundColor: hasPractice ? 'var(--color-primary)' : '#EBEFEA',
-                        color: hasPractice ? '#FFFFFF' : 'var(--color-text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                      }}
-                      title={`${day.dateKey}: ฝึก ${day.completedSessions} เซสชัน (${formatDurationThai(day.totalActiveSeconds)})`}
-                    >
-                      {hasPractice ? <CheckCircle2 size={16} /> : day.dayNumber}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
+        <Card className="activity-card">
+          <div className="section-heading"><h2>ทุกครั้งที่ฝึก มีความหมาย</h2><span className="eyebrow">7 วันล่าสุด</span></div>
+          <p className="muted">{past7Days.some(day => day.completedSessions > 0) ? `คุณฝึกแล้ว ${past7Days.filter(day => day.completedSessions > 0).length} วันในสัปดาห์ที่ผ่านมา` : 'เริ่มวันนี้ แล้วค่อย ๆ เห็นการเดินทางของตัวเอง'}</p>
+          <div className="week-grid">
+            {past7Days.map(day => <div key={day.dateKey} className={`week-day ${day.isToday ? 'is-today' : ''}`} aria-label={`${day.dateKey}: ฝึก ${day.completedSessions} เซสชัน (${formatDurationThai(day.totalActiveSeconds)})`}>
+              <span>{day.dayLabel}</span><span className={`day-circle ${day.completedSessions > 0 ? 'is-complete' : ''}`}>{day.completedSessions > 0 ? <CheckCircle2 size={20} /> : day.dayNumber}</span><small>{day.isToday ? 'วันนี้' : '\u00a0'}</small>
+            </div>)}
+          </div>
+          <button className="text-link" onClick={() => onNavigate({ path: 'progress' })}>ดูความก้าวหน้าทั้งหมด <ArrowRight size={16} /></button>
+        </Card>
       </div>
+      <p className="today-footer">วันละนิด ในจังหวะของคุณเอง</p>
     </div>
   );
 };

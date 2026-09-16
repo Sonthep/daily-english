@@ -326,7 +326,7 @@ export const ResourcesScreen: React.FC<ResourcesScreenProps> = ({ onStudyResourc
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))',
             gap: 'var(--space-md)',
           }}
         >
