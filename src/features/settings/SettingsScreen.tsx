@@ -25,8 +25,10 @@ import {
   Key,
   Smartphone,
   Wifi,
+  Volume2,
 } from 'lucide-react';
 import { usePwaInstall } from '../../lib/pwa/usePwaInstall';
+import { speechService, getStoredVoiceGender, setStoredVoiceGender, VoiceGender } from '../../lib/audio/speech';
 
 export interface SettingsScreenProps {
   onProfileUpdated: () => void;
@@ -58,6 +60,35 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
 
   // PWA State
   const { canInstall, isInstalled, isOfflineReady, promptInstall } = usePwaInstall();
+
+  // Voice Gender State
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(() => getStoredVoiceGender());
+
+  const handleSelectVoiceGender = (gender: VoiceGender) => {
+    setVoiceGender(gender);
+    setStoredVoiceGender(gender);
+    speechService.speak(
+      gender === 'male'
+        ? "This is the male voice. Let's practice English together!"
+        : "This is the female voice. Let's practice English together!",
+      1.0,
+      undefined,
+      undefined,
+      gender
+    );
+  };
+
+  const handleTestVoice = () => {
+    speechService.speak(
+      voiceGender === 'male'
+        ? 'Good job! Keep practicing English every day.'
+        : 'Good job! Keep practicing English every day.',
+      1.0,
+      undefined,
+      undefined,
+      voiceGender
+    );
+  };
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -299,6 +330,74 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
               <option value="Europe/London">Europe/London (UTC+00:00 / GMT)</option>
               <option value="America/New_York">America/New_York (UTC-05:00 / EST)</option>
             </select>
+          </div>
+
+          {/* Voice Gender Selection */}
+          <div>
+            <label
+              style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '8px' }}
+            >
+              เสียงอ่านภาษาอังกฤษ (Text-to-Speech)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSelectVoiceGender('male')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-control)',
+                    border: voiceGender === 'male' ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                    backgroundColor: voiceGender === 'male' ? '#EFF5F2' : '#FFFFFF',
+                    color: voiceGender === 'male' ? 'var(--color-primary)' : 'var(--color-text)',
+                    fontWeight: voiceGender === 'male' ? 600 : 400,
+                    fontSize: 'var(--font-size-sm)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    minHeight: 'var(--touch-target-min)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>👨 เสียงผู้ชาย (Male)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectVoiceGender('female')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-control)',
+                    border: voiceGender === 'female' ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                    backgroundColor: voiceGender === 'female' ? '#EFF5F2' : '#FFFFFF',
+                    color: voiceGender === 'female' ? 'var(--color-primary)' : 'var(--color-text)',
+                    fontWeight: voiceGender === 'female' ? 600 : 400,
+                    fontSize: 'var(--font-size-sm)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    minHeight: 'var(--touch-target-min)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>👩 เสียงผู้หญิง (Female)</span>
+                </button>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleTestVoice}
+              >
+                <Volume2 size={15} /> ทดลองฟังเสียง
+              </Button>
+            </div>
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+              ใช้เป็นเสียงอ่านหลักในทุกบทเรียน ทั้งการฟังประโยคและการฝึกพูดตาม (Shadowing)
+            </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
