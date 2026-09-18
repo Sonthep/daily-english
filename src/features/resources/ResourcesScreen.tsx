@@ -8,6 +8,7 @@ import { LearningResource, ResourceType, ResourceSentence, TargetPhrase } from '
 import { resourceRepo } from '../../lib/storage/repositories';
 import { extractYouTubeId, buildYouTubeEmbedUrl, getResourceTypeLabel } from '../../lib/resources/mediaUtils';
 import { parseBulkTextToSentences } from '../../lib/resources/bulkParser';
+import { VideoTranscribeModal } from '../../components/resources/VideoTranscribeModal';
 import {
   Plus,
   Search,
@@ -47,6 +48,7 @@ export const ResourcesScreen: React.FC<ResourcesScreenProps> = ({ onStudyResourc
 
   // Add / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTranscribeModalOpen, setIsTranscribeModalOpen] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formType, setFormType] = useState<ResourceType>('youtube');
   const [formSourceUrl, setFormSourceUrl] = useState('');
@@ -565,7 +567,21 @@ export const ResourcesScreen: React.FC<ResourcesScreenProps> = ({ onStudyResourc
               <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
                 ประโยคที่ต้องการฝึกฟังและพูดตาม (Sentences: {formSentences.filter(s => s.en.trim()).length})
               </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => setIsTranscribeModalOpen(true)}
+                  style={{
+                    borderColor: 'var(--color-primary)',
+                    color: 'var(--color-primary)',
+                    backgroundColor: '#EFF5F2',
+                    fontWeight: 600,
+                  }}
+                >
+                  <Sparkles size={14} /> ถอดประโยคจากคลิป
+                </Button>
                 <Button
                   variant={showBulkPaste ? 'primary' : 'outline'}
                   size="sm"
@@ -913,6 +929,32 @@ export const ResourcesScreen: React.FC<ResourcesScreenProps> = ({ onStudyResourc
           </div>
         </Modal>
       )}
+      {/* Video Transcribe Modal */}
+      <VideoTranscribeModal
+        isOpen={isTranscribeModalOpen}
+        onClose={() => setIsTranscribeModalOpen(false)}
+        videoTitle={formTitle || 'สื่อใหม่'}
+        videoUrl={formSourceUrl}
+        videoNotes={formNotes}
+        existingSentencesCount={formSentences.filter((s) => s.en.trim().length > 0).length}
+        onApplySentences={(newSentences, mode, targetPhrases) => {
+          if (mode === 'replace') {
+            setFormSentences(newSentences);
+          } else {
+            setFormSentences((prev) => {
+              const existing = prev.filter((p) => p.en.trim().length > 0);
+              return [...existing, ...newSentences];
+            });
+          }
+
+          if (targetPhrases && targetPhrases.length > 0) {
+            setFormPhrases((prev) => {
+              const existing = prev.filter((p) => p.en.trim().length > 0);
+              return [...existing, ...targetPhrases];
+            });
+          }
+        }}
+      />
     </div>
   );
 };

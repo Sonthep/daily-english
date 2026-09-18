@@ -189,6 +189,7 @@ export const App: React.FC = () => {
           resource={currentResource}
           onExit={() => navigateTo({ path: 'resources' })}
           onStartLesson={handleStartLesson}
+          onResourceUpdated={(updated) => setCurrentResource(updated)}
         />
       )}
 

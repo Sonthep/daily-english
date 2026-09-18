@@ -7,7 +7,7 @@ import {
 } from './types';
 
 const API_KEY_STORAGE_KEY = 'daily_english_gemini_key';
-const GEMINI_MODEL = 'gemini-3.5-flash-lite';
+const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /**
@@ -439,5 +439,110 @@ ${problemWords.length > 0 ? problemWords.join(', ') : 'None flagged'}
       };
     }
   }
+}
+
+export interface WordLookupResult {
+  en: string;
+  th: string;
+  partOfSpeech: string;
+  example: string;
+  phonetic?: string;
+  source: 'ai' | 'fallback';
+}
+
+/**
+ * Looks up word definition, Thai translation, part of speech, and natural example sentence using Gemini AI.
+ */
+export async function lookupWordWithGemini(
+  word: string,
+  contextSentence?: string
+): Promise<WordLookupResult> {
+  const cleanWord = word.trim().replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
+  if (!cleanWord) {
+    return {
+      en: word,
+      th: '',
+      partOfSpeech: 'Word',
+      example: contextSentence || word,
+      source: 'fallback',
+    };
+  }
+
+  const apiKey = getStoredGeminiApiKey();
+  if (!apiKey) {
+    return {
+      en: cleanWord,
+      th: '',
+      partOfSpeech: 'Word',
+      example: contextSentence || `How do you use the word "${cleanWord}"?`,
+      source: 'fallback',
+    };
+  }
+
+  const systemInstruction = `You are a concise English-Thai vocabulary tutor.
+When given an English word or phrase and an optional context sentence, provide:
+1. "en": The base or standard form of the word/phrase.
+2. "th": The most common and natural Thai translation suited for this context (1-3 words in Thai).
+3. "partOfSpeech": Short part of speech in English (e.g. noun, verb, adjective, adverb, idiom, phrase).
+4. "phonetic": IPA pronunciation if known (e.g. /ˈpræktɪs/).
+5. "example": A short, practical, natural English example sentence (use the context sentence if suitable).
+
+Output strictly valid JSON:
+{
+  "en": "string",
+  "th": "string in Thai",
+  "partOfSpeech": "string",
+  "phonetic": "string",
+  "example": "string"
+}`;
+
+  const promptText = `Word: "${cleanWord}"
+Context: "${contextSentence || ''}"`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: 'user', parts: [{ text: promptText }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 256,
+          responseMimeType: 'application/json',
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const parsed = JSON.parse(raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim());
+      return {
+        en: parsed.en || cleanWord,
+        th: parsed.th || '',
+        partOfSpeech: parsed.partOfSpeech || 'Word',
+        phonetic: parsed.phonetic || '',
+        example: parsed.example || contextSentence || cleanWord,
+        source: 'ai',
+      };
+    }
+  } catch (err) {
+    console.warn('AI word lookup failed, using fallback', err);
+  }
+
+  return {
+    en: cleanWord,
+    th: '',
+    partOfSpeech: 'Word',
+    example: contextSentence || cleanWord,
+    source: 'fallback',
+  };
 }
 

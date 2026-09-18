@@ -5,8 +5,8 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Toast } from '../../components/ui/Toast';
 import { Modal } from '../../components/ui/Modal';
-import { LearningResource, ResourceSentence, TargetPhrase } from '../../types';
-import { phraseRepo } from '../../lib/storage/repositories';
+import { Phrase, LearningResource, ResourceSentence, TargetPhrase } from '../../types';
+import { phraseRepo, resourceRepo } from '../../lib/storage/repositories';
 import { speechService } from '../../lib/audio/speech';
 import { AudioRecorder, RecorderError } from '../../lib/audio/recorder';
 import { speechRecognitionService } from '../../lib/audio/recognition';
@@ -30,23 +30,156 @@ import {
   Clock,
   Sparkles,
   Key,
+  Play,
 } from 'lucide-react';
 import { GenerateLessonModal } from '../../components/resources/GenerateLessonModal';
+import { VideoTranscribeModal } from '../../components/resources/VideoTranscribeModal';
+import { SaveWordModal } from '../../components/resources/SaveWordModal';
+import { PhraseReviewModal } from '../phrases/PhraseReviewModal';
+import { timestampToSeconds } from '../../lib/resources/videoTranscriber';
 
 export interface ResourceStudyScreenProps {
   resource: LearningResource;
   onExit: () => void;
   onStartLesson?: (lessonId: string, durationMinutes: 5 | 15) => void;
+  onResourceUpdated?: (updated: LearningResource) => void;
 }
 
 export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
   resource,
   onExit,
   onStartLesson,
+  onResourceUpdated,
 }) => {
   const [activeSeconds, setActiveSeconds] = useState(0);
   const [playingSentenceId, setPlayingSentenceId] = useState<string | null>(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+  const [isTranscribeModalOpen, setIsTranscribeModalOpen] = useState(false);
+  const [sentences, setSentences] = useState<ResourceSentence[]>(resource.sentences || []);
+
+  // Flashcard & Word Collection State
+  const [allPhrases, setAllPhrases] = useState<Phrase[]>([]);
+  const [isSaveWordModalOpen, setIsSaveWordModalOpen] = useState(false);
+  const [selectedWordForModal, setSelectedWordForModal] = useState('');
+  const [selectedSentenceForModal, setSelectedSentenceForModal] = useState('');
+  const [isFlashcardReviewOpen, setIsFlashcardReviewOpen] = useState(false);
+
+  const loadAllPhrases = async () => {
+    try {
+      const list = await phraseRepo.getAllPhrases();
+      setAllPhrases(list);
+    } catch (err) {
+      console.warn('Failed to load phrases', err);
+    }
+  };
+
+  useEffect(() => {
+    loadAllPhrases();
+  }, []);
+
+  const handleOpenSaveWord = (word: string, sentenceContext: string) => {
+    setSelectedWordForModal(word);
+    setSelectedSentenceForModal(sentenceContext);
+    setIsSaveWordModalOpen(true);
+  };
+
+  const renderInteractiveSentence = (sentenceText: string) => {
+    const tokens = sentenceText.split(/(\s+|[.,!?;:"()]+)/);
+    return (
+      <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--color-text)', lineHeight: 1.5 }}>
+        {tokens.map((token, i) => {
+          const isWord = /^[a-zA-Z0-9'-]+$/.test(token);
+          if (!isWord) {
+            return <span key={i}>{token}</span>;
+          }
+          return (
+            <span
+              key={i}
+              onClick={() => handleOpenSaveWord(token, sentenceText)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-primary-soft)';
+                e.currentTarget.style.color = 'var(--color-primary)';
+                e.currentTarget.style.textDecoration = 'underline';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'inherit';
+                e.currentTarget.style.textDecoration = 'none';
+              }}
+              style={{
+                cursor: 'pointer',
+                borderRadius: '3px',
+                padding: '1px 2px',
+                transition: 'background-color 0.15s ease',
+              }}
+              title={`คลิกเพื่อเก็บคำว่า "${token}" เข้า Flashcard`}
+            >
+              {token}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    setSentences(resource.sentences || []);
+  }, [resource]);
+
+  const handleSeekVideoToTimestamp = (timestamp?: string) => {
+    if (!timestamp) return;
+    const sec = timestampToSeconds(timestamp);
+    const iframe = document.getElementById('youtube-video-iframe') as HTMLIFrameElement | null;
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage(
+        JSON.stringify({
+          event: 'command',
+          func: 'seekTo',
+          args: [sec, true],
+        }),
+        '*'
+      );
+      iframe.contentWindow.postMessage(
+        JSON.stringify({
+          event: 'command',
+          func: 'playVideo',
+          args: [],
+        }),
+        '*'
+      );
+    }
+  };
+
+  const handleApplyTranscribedSentences = async (
+    newSentences: ResourceSentence[],
+    mode: 'replace' | 'append',
+    targetPhrases?: TargetPhrase[]
+  ) => {
+    let updatedSentences: ResourceSentence[];
+    if (mode === 'replace') {
+      updatedSentences = newSentences;
+    } else {
+      updatedSentences = [...sentences, ...newSentences];
+    }
+    setSentences(updatedSentences);
+
+    const updatedPhrases =
+      targetPhrases && targetPhrases.length > 0
+        ? [...(resource.targetPhrases || []), ...targetPhrases]
+        : resource.targetPhrases;
+
+    const updatedResource: LearningResource = {
+      ...resource,
+      sentences: updatedSentences,
+      targetPhrases: updatedPhrases,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await resourceRepo.saveResource(updatedResource);
+    onResourceUpdated?.(updatedResource);
+    setToastMessage(`บันทึก ${newSentences.length} ประโยคสำหรับฝึก Shadowing เรียบร้อยแล้ว!`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   // Shadowing Audio State per sentence
   const [recorder] = useState<AudioRecorder>(() => new AudioRecorder());
@@ -123,7 +256,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
     setRecordState('recorded');
 
     if (activeRecordSentenceId) {
-      const targetSentence = resource.sentences.find(
+      const targetSentence = sentences.find(
         (s: ResourceSentence) => s.id === activeRecordSentenceId
       );
       if (targetSentence) {
@@ -246,6 +379,20 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setIsTranscribeModalOpen(true)}
+            style={{
+              borderColor: 'var(--color-primary)',
+              color: 'var(--color-primary)',
+              backgroundColor: '#EFF5F2',
+              fontWeight: 600,
+            }}
+          >
+            <Sparkles size={14} />
+            <span>ถอดภาษาอังกฤษจากคลิป</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setIsGenerateModalOpen(true)}
             style={{
               borderColor: 'var(--color-primary)',
@@ -277,26 +424,33 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
       </div>
 
       {/* Media Player Embed Area */}
-      {resource.embedUrl && resource.type === 'youtube' && (
-        <Card padding="none" style={{ overflow: 'hidden', borderRadius: '16px', backgroundColor: '#000000' }}>
-          <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
-            <iframe
-              src={resource.embedUrl}
-              title={resource.title}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                border: 'none',
-              }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </Card>
-      )}
+      {resource.embedUrl && resource.type === 'youtube' && (() => {
+        let embedSrc = resource.embedUrl;
+        if (!embedSrc.includes('enablejsapi=1')) {
+          embedSrc += (embedSrc.includes('?') ? '&' : '?') + 'enablejsapi=1';
+        }
+        return (
+          <Card padding="none" style={{ overflow: 'hidden', borderRadius: '16px', backgroundColor: '#000000' }}>
+            <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
+              <iframe
+                id="youtube-video-iframe"
+                src={embedSrc}
+                title={resource.title}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* External Link Option if available */}
       {resource.sourceUrl && (
@@ -321,17 +475,64 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
 
       {/* Key Sentences & Shadowing Practice */}
       <Card padding="lg">
-        <div style={{ marginBottom: 'var(--space-md)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-            <Sparkles size={18} color="var(--color-primary)" />
-            <h2 style={{ fontSize: 'var(--font-size-lg)', color: 'var(--color-text)' }}>
-              ประโยคสำคัญและฝึกพูดตาม (Shadowing Practice)
-            </h2>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: 'var(--space-md)' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+              <Sparkles size={18} color="var(--color-primary)" />
+              <h2 style={{ fontSize: 'var(--font-size-lg)', color: 'var(--color-text)' }}>
+                ประโยคสำคัญและฝึกพูดตาม (Shadowing Practice)
+              </h2>
+            </div>
+            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
+              ฟังการออกเสียง แล้วลองกดอัดเสียงเพื่อฝึกพูดตาม (Shadowing) หรือคลิกที่คำศัพท์เพื่อเก็บเป็น Flashcard
+            </p>
           </div>
-          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
-            ฟังการออกเสียง แล้วลองกดอัดเสียงเพื่อฝึกพูดตาม (Shadowing) หรือกดบันทึกวลีเข้าคลังคำศัพท์
-          </p>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFlashcardReviewOpen(true)}
+              style={{ fontWeight: 600, borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+              title="เปิดระบบทบทวน Flashcard สำหรับคำศัพท์ที่เก็บไว้"
+            >
+              <span>🎴 ทบทวน Flashcard ({allPhrases.length})</span>
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsTranscribeModalOpen(true)}
+              style={{ fontWeight: 600 }}
+            >
+              <Sparkles size={14} />
+              <span>{sentences.length === 0 ? '✨ ถอดประโยคจากคลิปนี้' : '✨ ถอดประโยคเพิ่ม / แก้ไข'}</span>
+            </Button>
+          </div>
         </div>
+
+        {/* Word collection helper tip */}
+        {sentences.length > 0 && (
+          <div
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#F0FDF4',
+              borderRadius: 'var(--radius-control)',
+              border: '1px solid #DCFCE7',
+              fontSize: 'var(--font-size-xs)',
+              color: '#166534',
+              marginBottom: 'var(--space-md)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span style={{ fontSize: '15px' }}>💡</span>
+            <span>
+              <strong>เคล็ดลับทำ Flashcard:</strong> สามารถคลิกที่ <strong>คำศัพท์คำใดก็ได้</strong> ในประโยคภาษาอังกฤษด้านล่าง หรือกดปุ่ม <strong>"⭐ เก็บคำศัพท์"</strong> เพื่อดึงความหมายด้วย AI และบันทึกลงคลัง Flashcard ทันที
+            </span>
+          </div>
+        )}
 
         {micError && (
           <div
@@ -348,74 +549,126 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          {resource.sentences.map((st, index) => {
-            const isPlayingThis = playingSentenceId === st.id;
-            const isRecordingThis = activeRecordSentenceId === st.id;
-            const isSaved = savedPhraseIds.has(st.id);
+        {sentences.length === 0 ? (
+          <div
+            style={{
+              padding: '36px 20px',
+              textAlign: 'center',
+              backgroundColor: '#F8FAF9',
+              borderRadius: 'var(--radius-control)',
+              border: '1.5px dashed var(--color-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '12px',
+            }}
+          >
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--color-primary-soft)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-primary)',
+              }}
+            >
+              <Sparkles size={24} />
+            </div>
+            <div style={{ maxWidth: '440px' }}>
+              <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '6px' }}>
+                ยังไม่มีประโยคสำหรับฝึก Shadowing ในคลิปนี้
+              </h3>
+              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
+                กดปุ่มด้านล่างเพื่อถอดประโยคพูดภาษาอังกฤษจากคลิปด้วย AI หรือนำเข้า Transcript จาก YouTube เพื่อเริ่มฝึก Shadowing ได้ทันที
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => setIsTranscribeModalOpen(true)} style={{ marginTop: '4px' }}>
+              <Sparkles size={16} />
+              <span>✨ ถอดภาษาอังกฤษจากคลิปนี้</span>
+            </Button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            {sentences.map((st, index) => {
+              const isPlayingThis = playingSentenceId === st.id;
+              const isRecordingThis = activeRecordSentenceId === st.id;
+              const isSaved = savedPhraseIds.has(st.id);
 
-            return (
-              <div
-                key={st.id}
-                style={{
-                  padding: 'var(--space-base)',
-                  borderRadius: 'var(--radius-control)',
-                  backgroundColor: '#FAFCFA',
-                  border: isRecordingThis ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-sm)',
-                  transition: 'all var(--transition-smooth)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <span
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--color-primary-soft)',
-                        color: 'var(--color-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        flexShrink: 0,
-                        marginTop: '2px',
-                      }}
-                    >
-                      {index + 1}
-                    </span>
+              return (
+                <div
+                  key={st.id}
+                  style={{
+                    padding: 'var(--space-base)',
+                    borderRadius: 'var(--radius-control)',
+                    backgroundColor: '#FAFCFA',
+                    border: isRecordingThis ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--space-sm)',
+                    transition: 'all var(--transition-smooth)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <span
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--color-primary-soft)',
+                          color: 'var(--color-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          marginTop: '2px',
+                        }}
+                      >
+                        {index + 1}
+                      </span>
 
-                    <div>
-                      <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--color-text)' }}>
-                        {st.en}
-                      </div>
-                      {st.th && (
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                          {st.th}
+                      <div>
+                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--color-text)', lineHeight: 1.6 }}>
+                          {renderInteractiveSentence(st.en)}
                         </div>
-                      )}
+                        {st.th && (
+                          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                            {st.th}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {st.timestamp && (
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: '#EFF3F0',
-                        color: 'var(--color-text-muted)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {st.timestamp}
-                    </span>
-                  )}
-                </div>
+                    {st.timestamp && (
+                      <button
+                        onClick={() => handleSeekVideoToTimestamp(st.timestamp)}
+                        style={{
+                          fontSize: '11px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: '#EFF5F2',
+                          color: 'var(--color-primary)',
+                          border: '1px solid #D1E5DA',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontWeight: 600,
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                        }}
+                        title="คลิกเพื่อกระโดดไปฟังช่วงเวลานี้ในวิดีโอ"
+                      >
+                        <Play size={10} fill="var(--color-primary)" />
+                        <span>{st.timestamp}</span>
+                      </button>
+                    )}
+                  </div>
 
                 {/* Sentence Action Controls */}
                 <div
@@ -430,7 +683,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                     gap: '8px',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -462,25 +715,45 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                     </Button>
                   </div>
 
-                  <Button
-                    variant={isSaved ? 'secondary' : 'ghost'}
-                    size="sm"
-                    disabled={isSaved}
-                    onClick={() => handleSavePhraseToBank(st.en, st.th || '', st.en, st.id)}
-                    style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)' }}
-                  >
-                    {isSaved ? (
-                      <>
-                        <Check size={14} color="var(--color-primary)" />
-                        <span>บันทึกแล้ว</span>
-                      </>
-                    ) : (
-                      <>
-                        <Bookmark size={14} />
-                        <span>เก็บเข้า My Phrases</span>
-                      </>
-                    )}
-                  </Button>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenSaveWord('', st.en)}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: 'var(--font-size-xs)',
+                        borderColor: '#F59E0B',
+                        color: '#B45309',
+                        backgroundColor: '#FFFBEB',
+                        fontWeight: 600,
+                      }}
+                      title="เลือกเก็บคำศัพท์หรือสำนวนจากประโยคนี้เป็น Flashcard"
+                    >
+                      <span>⭐ เก็บคำศัพท์เป็น Flashcard</span>
+                    </Button>
+
+                    <Button
+                      variant={isSaved ? 'secondary' : 'ghost'}
+                      size="sm"
+                      disabled={isSaved}
+                      onClick={() => handleSavePhraseToBank(st.en, st.th || '', st.en, st.id)}
+                      style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)' }}
+                      title="เก็บบันทึกทั้งประโยคนี้"
+                    >
+                      {isSaved ? (
+                        <>
+                          <Check size={14} color="var(--color-primary)" />
+                          <span>บันทึกทั้งประโยคแล้ว</span>
+                        </>
+                      ) : (
+                        <>
+                          <Bookmark size={14} />
+                          <span>เก็บทั้งประโยค</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* In-Place Audio Recording Playback, Live Transcript & Evaluation */}
@@ -547,6 +820,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
             );
           })}
         </div>
+        )}
       </Card>
 
       {/* Target Phrases Showcase */}
@@ -797,6 +1071,44 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           } else {
             setToastMessage(`บันทึกบทเรียน "${lesson.titleTh}" ลงในคลังเรียบร้อยแล้ว`);
           }
+        }}
+      />
+
+      {/* Video Transcribe Modal */}
+      <VideoTranscribeModal
+        isOpen={isTranscribeModalOpen}
+        onClose={() => setIsTranscribeModalOpen(false)}
+        videoTitle={resource.title}
+        videoUrl={resource.sourceUrl || resource.embedUrl}
+        videoNotes={resource.notes}
+        existingSentencesCount={sentences.length}
+        onApplySentences={handleApplyTranscribedSentences}
+      />
+
+      {/* Save Word / Flashcard Modal */}
+      <SaveWordModal
+        isOpen={isSaveWordModalOpen}
+        onClose={() => setIsSaveWordModalOpen(false)}
+        initialWord={selectedWordForModal}
+        contextSentence={selectedSentenceForModal}
+        onSaved={(_phrase) => {
+          loadAllPhrases();
+          setToastMessage(`บันทึก "${_phrase.en}" เป็น Flashcard สำเร็จแล้ว! 🎴`);
+        }}
+      />
+
+      {/* Spaced Repetition Flashcard Review Modal */}
+      <PhraseReviewModal
+        isOpen={isFlashcardReviewOpen}
+        phrases={allPhrases}
+        onClose={() => {
+          setIsFlashcardReviewOpen(false);
+          loadAllPhrases();
+        }}
+        onComplete={() => {
+          setIsFlashcardReviewOpen(false);
+          loadAllPhrases();
+          setToastMessage('ยินดีด้วย! คุณทบทวน Flashcard รอบนี้เสร็จสิ้นแล้ว 🎉');
         }}
       />
 

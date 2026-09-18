@@ -1,7 +1,7 @@
 import { Lesson, LearningResource, LessonGenerationOptions, LessonSentence, LessonPrompt, TargetPhrase } from '../../types';
 import { getStoredGeminiApiKey } from './geminiProvider';
 
-const GEMINI_MODEL = 'gemini-3.5-flash-lite';
+const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /**

@@ -54,7 +54,7 @@ export function parseBulkTextToSentences(rawText: string): ResourceSentence[] {
 
     // Check for inline timestamp e.g. "[01:24] Hello world" or "01:24 - Hello world"
     let cleanLine = line;
-    let activeTimestamp = currentTimestamp;
+    let activeTimestamp: string | undefined = currentTimestamp;
     const timeMatch = cleanLine.match(timestampRegex);
     if (timeMatch) {
       activeTimestamp = timeMatch[1];
@@ -62,7 +62,12 @@ export function parseBulkTextToSentences(rawText: string): ResourceSentence[] {
       currentTimestamp = undefined;
     }
 
-    if (!cleanLine) continue;
+    if (!cleanLine) {
+      if (activeTimestamp) {
+        currentTimestamp = activeTimestamp;
+      }
+      continue;
+    }
 
     // Check if line contains both English and Thai separated by delimiter: " / ", " - ", " — ", " : "
     const delimiterMatch = cleanLine.match(/^(.*?)\s+(?:[/—–]|-(?!>))\s+(.*)$/);
