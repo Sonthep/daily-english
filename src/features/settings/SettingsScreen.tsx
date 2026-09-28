@@ -37,7 +37,9 @@ export interface SettingsScreenProps {
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState('');
+  const [learningGoal, setLearningGoal] = useState<'work' | 'daily' | 'gaming'>('daily');
   const [dailyMinutes, setDailyMinutes] = useState<5 | 15>(5);
+  const [confidence, setConfidence] = useState<Profile['confidence']>('beginner');
   const [timezone, setTimezone] = useState('Asia/Bangkok');
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
@@ -95,7 +97,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
       const p = (await profileRepo.getProfile()) || (await profileRepo.initDefaultProfile());
       setProfile(p);
       setDisplayName(p.displayName);
+      setLearningGoal(p.goals.includes('work') ? 'work' : p.goals.includes('gaming') ? 'gaming' : 'daily');
       setDailyMinutes(p.dailyMinutes || 5);
+      setConfidence(p.confidence);
       setTimezone(p.timezone || 'Asia/Bangkok');
       setGeminiKey(getStoredGeminiApiKey() || '');
     };
@@ -108,8 +112,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
 
     const updated: Profile = {
       ...profile,
-      displayName: displayName.trim() || 'ปุ๊ก',
+      displayName: displayName.trim(),
+      goals: [learningGoal],
       dailyMinutes,
+      confidence,
       timezone,
       updatedAt: new Date().toISOString(),
     };
@@ -280,6 +286,33 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
 
           <div>
             <label
+              htmlFor="learning-goal-select"
+              style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
+            >
+              เป้าหมายหลักในการฝึก
+            </label>
+            <select
+              id="learning-goal-select"
+              value={learningGoal}
+              onChange={(e) => setLearningGoal(e.target.value as 'work' | 'daily' | 'gaming')}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-control)',
+                border: '1px solid var(--color-border)',
+                outline: 'none',
+                backgroundColor: '#FFFFFF',
+                fontSize: 'var(--font-size-base)',
+              }}
+            >
+              <option value="work">การทำงาน</option>
+              <option value="daily">ชีวิตประจำวัน</option>
+              <option value="gaming">เล่นเกมและทำงานเป็นทีม</option>
+            </select>
+          </div>
+
+          <div>
+            <label
               htmlFor="daily-minutes-select"
               style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
             >
@@ -301,6 +334,33 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
             >
               <option value={5}>5 นาที (กระชับ รวดเร็ว)</option>
               <option value={15}>15 นาที (เข้มข้นขึ้น)</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="confidence-select"
+              style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
+            >
+              ระดับความมั่นใจในภาษาอังกฤษ
+            </label>
+            <select
+              id="confidence-select"
+              value={confidence}
+              onChange={(e) => setConfidence(e.target.value as Profile['confidence'])}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-control)',
+                border: '1px solid var(--color-border)',
+                outline: 'none',
+                backgroundColor: '#FFFFFF',
+                fontSize: 'var(--font-size-base)',
+              }}
+            >
+              <option value="beginner">เริ่มต้น</option>
+              <option value="intermediate">พอเข้าใจ</option>
+              <option value="advancing">มั่นใจขึ้น</option>
             </select>
           </div>
 
@@ -461,7 +521,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
           }}
         >
           <div>
-            🔒 <strong>ความเป็นส่วนตัวและความปลอดภัย:</strong> API Key จะถูกบันทึกไว้ใน Browser LocalStorage ของเครื่องคุณเท่านั้น ไม่มีการส่งผ่านเซิร์ฟเวอร์คนกลาง
+            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป Google Gemini ผ่าน HTTPS เมื่อใช้ AI ไม่มีเซิร์ฟเวอร์กลาง แต่ JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้ จึงไม่ควรใช้คีย์ส่วนกลางหรือคีย์ที่มีสิทธิ์กว้าง
           </div>
           <div style={{ marginTop: '4px' }}>
             ✨ <strong>ใช้งานฟรี:</strong> คุณสามารถสมัครรับ API Key ฟรีได้จาก{' '}

@@ -30,11 +30,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   const isDesktop = windowWidth >= 1024;
   const isMobile = windowWidth < 1024;
 
-  // Onboarding, active lesson, and resource study have minimal shell (no sidebar or bottom nav to keep focus)
+  // Active lessons and resource study have a minimal shell to keep focus.
   const isFocusedMode =
     currentRoute.path === 'lesson' ||
-    currentRoute.path === 'resource-study' ||
-    currentRoute.path === 'onboarding';
+    currentRoute.path === 'resource-study';
 
   if (isFocusedMode) {
     return (

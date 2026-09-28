@@ -9,7 +9,7 @@ graph TD
     subgraph UI_Layer ["UI Layer (React 18 / 19 + TypeScript)"]
         Router["Client-Side Router (/today, /practice, /lesson/:id, etc.)"]
         Shell["AppShell (Header, Responsive Sidebar, BottomNav)"]
-        Features["Feature Modules (Onboarding, Today, Lesson, Phrases, Progress, Settings)"]
+        Features["Feature Modules (Today, Lesson, Phrases, Progress, Settings)"]
         UI_Components["Design System Components (Button, Modal, Card, Badge, Tabs)"]
     end
 
@@ -56,7 +56,6 @@ daily-english/
 │   ├── data/
 │   │   └── lessons/             # Seed lessons (Design feedback, Daily life, Gaming)
 │   ├── features/
-│   │   ├── onboarding/          # Onboarding questionnaire & preferences
 │   │   ├── today/               # Daily dashboard & 1-click launcher
 │   │   ├── practice/            # Lesson catalog, search, and category filters
 │   │   ├── lesson/              # 5-step lesson player (Listen, Repeat, Use it, Review, Summary)

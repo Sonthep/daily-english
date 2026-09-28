@@ -88,6 +88,39 @@
 - [x] ตรวจสอบ Accessibility (Focus ring, Touch target >= 44px, Contrast, Reduced motion)
 - [x] รัน `npm test` และ `npm run build` ตรวจสอบ 0 errors (ผ่าน 100%)
 
+## Product adjustment — 2026-09-28
+
+- [x] เอาหน้า onboarding ออกจากเส้นทางเริ่มต้น ให้ผู้ใช้ใหม่เข้า Today ด้วยโปรไฟล์ค่าเริ่มต้น
+- [x] รองรับโปรไฟล์เดิมที่ยังมีสถานะ onboarding ไม่เสร็จ โดยทำเครื่องหมายว่าเสร็จเมื่อเปิดแอป
+
+## AI feedback reliability — 2026-09-29
+
+- [x] ป้องกัน AI feedback fallback หรือผลประเมินที่ขาด field ไม่ให้แสดงว่าผู้ใช้สื่อความหมายเข้าใจ
+- [x] แยก label ของ AI feedback กับตัวอย่าง Self-check และเพิ่ม regression tests
+
+## Reliability and release checks — 2026-09-29
+
+- [x] ตรวจสอบ import schema v1/v2 และข้อมูลทุก record ก่อนเปิด transaction พร้อม regression tests
+- [x] ย้าย Gemini API Key จาก URL ไป HTTPS header และยกเลิกการอ่านคีย์จาก `VITE_*`
+- [x] ปรับเอกสาร BYOK ให้ระบุข้อจำกัดของ LocalStorage และอัปเดตคำเตือนใน UI
+- [x] เปลี่ยนโปรไฟล์เริ่มต้นเป็นกลาง และเปิดให้แก้เป้าหมายกับระดับความมั่นใจใน Settings
+- [x] เพิ่ม Playwright smoke tests สำหรับ first launch, profile settings และการคงค่าเมื่อ refresh
+- [x] Lazy-load route screens ลด main bundle จากประมาณ 527 kB เหลือ 274 kB
+- [x] อัปเดต Vitest และ happy-dom ตาม advisories; `npm audit` ไม่พบช่องโหว่
+
+## Common vocabulary bank — 2026-09-29
+
+- [x] เพิ่มรายการคำอังกฤษ 3,000 คำเรียงตามความถี่ พร้อม attribution และ CC BY-SA 4.0
+- [x] เพิ่มหน้าค้นหา/แบ่งหน้าในคลังวลี และเลือกคำเข้าแบบฟอร์ม flashcard โดยต้องเติมคำแปลก่อนบันทึก
+- [x] ป้องกันคำที่มีอยู่แล้วถูกเพิ่มซ้ำ และเพิ่ม tests สำหรับข้อมูล การค้นหา และ pagination
+
+## Vocabulary-to-lesson practice — 2026-09-29
+
+- [x] เลือกคำ 3–5 คำและบริบทเพื่อสร้างบทเรียนผ่าน Gemini BYOK
+- [x] ตรวจผลลัพธ์ให้มีทุกคำเป้าหมาย พร้อม preview คำแปล/ประโยค/โจทย์ก่อนบันทึก
+- [x] ปฏิเสธ fallback เมื่อไม่มีคีย์หรือผล AI ไม่ครบ และเพิ่มตัวเลือกบันทึกหรือเริ่มฝึกทันที
+- [x] ลด latency ด้วย Gemini 3.8 Flash, thinking level low, deadline 60 วินาที และ fallback จำกัดไป 3.6 Flash เมื่อเจอ 503
+
 ---
 
 ## 🔮 Future Roadmap (สิ่งที่พัฒนาต่อได้ในอนาคต)

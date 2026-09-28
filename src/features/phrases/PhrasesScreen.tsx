@@ -5,11 +5,13 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Toast } from '../../components/ui/Toast';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Phrase } from '../../types';
+import { AppRoute, Lesson, Phrase } from '../../types';
 import { phraseRepo } from '../../lib/storage/repositories';
 import { speechService } from '../../lib/audio/speech';
 import { createNewPhrase } from '../../lib/review/scheduler';
 import { PhraseReviewModal } from './PhraseReviewModal';
+import { CommonWordBank } from './CommonWordBank';
+import { CommonWordsLessonModal } from './CommonWordsLessonModal';
 import {
   Search,
   Plus,
@@ -19,14 +21,22 @@ import {
   Edit2,
   Clock,
   RotateCcw,
+  ArrowLeft,
 } from 'lucide-react';
 
-export const PhrasesScreen: React.FC = () => {
+export interface PhrasesScreenProps {
+  onNavigate: (route: AppRoute) => void;
+  onStartLesson: (lessonId: string, durationMinutes: 5 | 15) => void;
+}
+
+export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStartLesson }) => {
   const [phrases, setPhrases] = useState<Phrase[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'due' | 'category'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(true);
+  const [isCommonWordBankOpen, setIsCommonWordBankOpen] = useState(false);
+  const [lessonWords, setLessonWords] = useState<string[] | null>(null);
 
   // Add / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,12 +68,12 @@ export const PhrasesScreen: React.FC = () => {
     loadPhrases();
   }, []);
 
-  const handleOpenAdd = () => {
+  const handleOpenAdd = (word = '') => {
     setEditingPhrase(null);
-    setFormEn('');
+    setFormEn(word);
     setFormTh('');
     setFormExample('');
-    setFormCategory('General');
+    setFormCategory(word ? 'Common 3000' : 'General');
     setIsModalOpen(true);
   };
 
@@ -171,19 +181,45 @@ export const PhrasesScreen: React.FC = () => {
       >
         <div>
           <h1 style={{ fontSize: 'var(--font-size-2xl)', color: 'var(--color-text)', marginBottom: '4px' }}>
-            คลังคำศัพท์และวลี (My Phrases)
+            {isCommonWordBankOpen ? 'คำศัพท์อังกฤษที่พบบ่อย 3,000 คำ' : 'คลังคำศัพท์และวลี (My Phrases)'}
           </h1>
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-base)' }}>
-            รวมวลีที่เก็บจากบทเรียนและคำศัพท์ที่คุณเพิ่มเอง พร้อมระบบนัดทบทวน
+            {isCommonWordBankOpen
+              ? 'ค้นหาคำตามอันดับความถี่ แล้วเลือกเพิ่มเป็นบัตรทบทวนทีละคำ'
+              : 'รวมวลีที่เก็บจากบทเรียนและคำศัพท์ที่คุณเพิ่มเอง พร้อมระบบนัดทบทวน'}
           </p>
         </div>
 
-        <Button onClick={handleOpenAdd}>
-          <Plus size={18} />
-          <span>เพิ่มวลีใหม่</span>
-        </Button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
+          {isCommonWordBankOpen ? (
+            <Button variant="outline" onClick={() => setIsCommonWordBankOpen(false)}>
+              <ArrowLeft size={17} /> กลับคลังวลี
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setIsCommonWordBankOpen(true)}>
+                <Bookmark size={17} /> คำที่พบบ่อย 3,000 คำ
+              </Button>
+              <Button onClick={() => handleOpenAdd()}>
+                <Plus size={18} />
+                <span>เพิ่มวลีใหม่</span>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
+      {isCommonWordBankOpen ? (
+        <CommonWordBank
+          existingWords={new Set(phrases.map((phrase) => phrase.en.trim().toLowerCase()))}
+          onChooseWord={(word) => {
+            setIsCommonWordBankOpen(false);
+            handleOpenAdd(word);
+          }}
+          onGenerateLesson={setLessonWords}
+        />
+      ) : (
+      <>
       {/* Due Phrases Review Banner */}
       {dueCount > 0 && (
         <Card
@@ -548,6 +584,7 @@ export const PhrasesScreen: React.FC = () => {
               <option value="Design & Marketing">งานดีไซน์ & การตลาด</option>
               <option value="Daily Life">ชีวิตประจำวัน</option>
               <option value="Gaming">เกม & ทีมเวิร์ก</option>
+              <option value="Common 3000">คำศัพท์ที่พบบ่อย</option>
             </select>
           </div>
 
@@ -605,6 +642,25 @@ export const PhrasesScreen: React.FC = () => {
         onComplete={() => {
           setIsReviewModalOpen(false);
           loadPhrases();
+        }}
+      />
+      </>
+      )}
+      <CommonWordsLessonModal
+        isOpen={lessonWords !== null}
+        words={lessonWords || []}
+        onClose={() => setLessonWords(null)}
+        onConfigureAI={() => {
+          setLessonWords(null);
+          onNavigate({ path: 'settings' });
+        }}
+        onLessonCreated={(lesson: Lesson, durationMinutes, startImmediately) => {
+          setLessonWords(null);
+          if (startImmediately) {
+            onStartLesson(lesson.id, durationMinutes);
+          } else {
+            onNavigate({ path: 'practice' });
+          }
         }}
       />
     </div>

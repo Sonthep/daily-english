@@ -92,7 +92,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   }
 
   const past7Days = getPast7DaysActivity(completedSessions, profile?.timezone || 'Asia/Bangkok');
-  const greetingName = profile?.displayName || 'ปุ๊ก';
+  const greetingName = profile?.displayName.trim();
   const hasIncompleteSession = !!activeSession;
 
   return (
@@ -100,7 +100,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       <header className="today-heading">
         <div>
           <div className="eyebrow"><CalendarCheck size={15} /> {formatThaiDate(new Date(), profile?.timezone || 'Asia/Bangkok')}</div>
-          <h1>สวัสดี {greetingName}<span className="greeting-dot">.</span></h1>
+          <h1>{greetingName ? `สวัสดี ${greetingName}` : 'ยินดีต้อนรับ'}<span className="greeting-dot">.</span></h1>
           <p className="muted">ให้ภาษาอังกฤษเป็นเรื่องเล็ก ๆ ที่ทำได้ทุกวัน</p>
         </div>
         <div className="duration-picker">

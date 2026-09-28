@@ -23,6 +23,139 @@ import { getDuePhrases } from '../review/scheduler';
 
 export const DEFAULT_PROFILE_ID = 'default-user';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+const isTimestamp = (value: unknown): value is string =>
+  typeof value === 'string' && Number.isFinite(Date.parse(value));
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const isTargetPhrase = (value: unknown): boolean =>
+  isRecord(value) &&
+  isNonEmptyString(value.id) &&
+  isNonEmptyString(value.en) &&
+  isNonEmptyString(value.th) &&
+  typeof value.example === 'string' &&
+  isNonEmptyString(value.category);
+
+const isLesson = (value: unknown): boolean =>
+  isRecord(value) &&
+  isNonEmptyString(value.id) &&
+  isNonEmptyString(value.titleTh) &&
+  isNonEmptyString(value.titleEn) &&
+  ['Design & Marketing', 'Daily Life', 'Gaming', 'Custom AI'].includes(String(value.category)) &&
+  typeof value.objectiveTh === 'string' &&
+  Array.isArray(value.sentences) &&
+  value.sentences.every(
+    (sentence) =>
+      isRecord(sentence) &&
+      isNonEmptyString(sentence.id) &&
+      isNonEmptyString(sentence.en) &&
+      typeof sentence.th === 'string'
+  ) &&
+  Array.isArray(value.prompts) &&
+  value.prompts.every(
+    (prompt) =>
+      isRecord(prompt) &&
+      isNonEmptyString(prompt.id) &&
+      isNonEmptyString(prompt.questionEn) &&
+      typeof prompt.questionTh === 'string' &&
+      isNonEmptyString(prompt.sampleAnswer)
+  ) &&
+  Array.isArray(value.targetPhrases) &&
+  value.targetPhrases.every(isTargetPhrase) &&
+  isTimestamp(value.createdAt) &&
+  (value.isAiGenerated === undefined || typeof value.isAiGenerated === 'boolean') &&
+  (value.sourceResourceId === undefined || typeof value.sourceResourceId === 'string');
+
+const isProfile = (value: unknown): boolean =>
+  isRecord(value) &&
+  value.id === DEFAULT_PROFILE_ID &&
+  typeof value.displayName === 'string' &&
+  isStringArray(value.goals) &&
+  (value.dailyMinutes === 5 || value.dailyMinutes === 15) &&
+  ['beginner', 'intermediate', 'advancing'].includes(String(value.confidence)) &&
+  isNonEmptyString(value.timezone) &&
+  typeof value.onboardingCompleted === 'boolean' &&
+  isTimestamp(value.createdAt) &&
+  isTimestamp(value.updatedAt);
+
+const isSession = (value: unknown): boolean =>
+  isRecord(value) &&
+  isNonEmptyString(value.id) &&
+  isNonEmptyString(value.lessonId) &&
+  (value.modeMinutes === 5 || value.modeMinutes === 15) &&
+  ['listen', 'repeat', 'use_it', 'review', 'summary'].includes(String(value.currentStep)) &&
+  Number.isInteger(value.currentItemIndex) &&
+  Number(value.currentItemIndex) >= 0 &&
+  Array.isArray(value.answers) &&
+  value.answers.every(
+    (answer) =>
+      isRecord(answer) &&
+      isNonEmptyString(answer.promptId) &&
+      typeof answer.answerText === 'string' &&
+      isTimestamp(answer.answeredAt)
+  ) &&
+  isStringArray(value.reviewedPhraseIds) &&
+  Number.isFinite(value.activeDurationSeconds) &&
+  Number(value.activeDurationSeconds) >= 0 &&
+  isTimestamp(value.startedAt) &&
+  isTimestamp(value.updatedAt) &&
+  (value.completedAt === null || isTimestamp(value.completedAt));
+
+const isPhrase = (value: unknown): boolean =>
+  isRecord(value) &&
+  isNonEmptyString(value.id) &&
+  isNonEmptyString(value.en) &&
+  isNonEmptyString(value.th) &&
+  typeof value.example === 'string' &&
+  isNonEmptyString(value.category) &&
+  (value.sourceLessonId === null || typeof value.sourceLessonId === 'string') &&
+  Number.isInteger(value.reviewStage) &&
+  Number(value.reviewStage) >= 0 &&
+  isTimestamp(value.dueAt) &&
+  isTimestamp(value.createdAt) &&
+  isTimestamp(value.updatedAt);
+
+const isReviewEvent = (value: unknown): boolean =>
+  isRecord(value) &&
+  isNonEmptyString(value.id) &&
+  isNonEmptyString(value.phraseId) &&
+  (value.result === 'again' || value.result === 'remembered') &&
+  isTimestamp(value.reviewedAt) &&
+  Number.isInteger(value.previousStage) &&
+  Number(value.previousStage) >= 0 &&
+  Number.isInteger(value.nextStage) &&
+  Number(value.nextStage) >= 0;
+
+const isResource = (value: unknown): boolean =>
+  isRecord(value) &&
+  isNonEmptyString(value.id) &&
+  isNonEmptyString(value.title) &&
+  ['youtube', 'podcast', 'song', 'movie', 'article'].includes(String(value.type)) &&
+  (value.sourceUrl === undefined || typeof value.sourceUrl === 'string') &&
+  (value.embedUrl === undefined || typeof value.embedUrl === 'string') &&
+  (value.notes === undefined || typeof value.notes === 'string') &&
+  Array.isArray(value.sentences) &&
+  value.sentences.every(
+    (sentence) =>
+      isRecord(sentence) &&
+      isNonEmptyString(sentence.id) &&
+      isNonEmptyString(sentence.en) &&
+      typeof sentence.th === 'string' &&
+      (sentence.timestamp === undefined || typeof sentence.timestamp === 'string')
+  ) &&
+  Array.isArray(value.targetPhrases) &&
+  value.targetPhrases.every(isTargetPhrase) &&
+  (value.reflectionQuestion === undefined || typeof value.reflectionQuestion === 'string') &&
+  isTimestamp(value.createdAt) &&
+  isTimestamp(value.updatedAt);
+
 export class ProfileRepository implements IProfileRepository {
   async getProfile(): Promise<Profile | null> {
     const db = await getDatabase();
@@ -48,12 +181,12 @@ export class ProfileRepository implements IProfileRepository {
     const now = new Date().toISOString();
     const defaultProfile: Profile = {
       id: DEFAULT_PROFILE_ID,
-      displayName: 'ปุ๊ก',
-      goals: ['work', 'daily'],
+      displayName: '',
+      goals: ['daily'],
       dailyMinutes: 5,
-      confidence: 'intermediate',
+      confidence: 'beginner',
       timezone: 'Asia/Bangkok',
-      onboardingCompleted: false,
+      onboardingCompleted: true,
       createdAt: now,
       updatedAt: now,
     };
@@ -292,39 +425,51 @@ export class StorageService implements IStorageService {
     try {
       const parsed = JSON.parse(jsonString);
 
-      if (!parsed || typeof parsed !== 'object') {
+      if (!isRecord(parsed)) {
         return { valid: false, error: 'รูปแบบไฟล์ไม่ใช่ JSON Object ที่ถูกต้อง' };
       }
 
-      if (typeof parsed.schemaVersion !== 'number') {
-        return { valid: false, error: 'ไฟล์ไม่มีหมายเลข schemaVersion หรือไม่ถูกต้อง' };
+      if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) {
+        return { valid: false, error: 'ไม่รองรับ schemaVersion ของไฟล์นี้' };
       }
 
-      if (!parsed.profile || typeof parsed.profile !== 'object' || !parsed.profile.displayName) {
+      if (!isTimestamp(parsed.exportedAt)) {
+        return { valid: false, error: 'วันที่ส่งออกข้อมูลไม่ถูกต้อง' };
+      }
+
+      if (!isProfile(parsed.profile)) {
         return { valid: false, error: 'ข้อมูล Profile ภายในไฟล์ไม่ครบถ้วนหรือไม่สมบูรณ์' };
       }
 
-      if (!Array.isArray(parsed.sessions)) {
-        return { valid: false, error: 'ข้อมูล sessions ต้องอยู่ในรูปแบบ Array' };
+      if (!Array.isArray(parsed.sessions) || !parsed.sessions.every(isSession)) {
+        return { valid: false, error: 'ข้อมูล sessions มีรูปแบบไม่ถูกต้อง' };
       }
 
-      if (!Array.isArray(parsed.phrases)) {
-        return { valid: false, error: 'ข้อมูล phrases ต้องอยู่ในรูปแบบ Array' };
+      if (!Array.isArray(parsed.phrases) || !parsed.phrases.every(isPhrase)) {
+        return { valid: false, error: 'ข้อมูล phrases มีรูปแบบไม่ถูกต้อง' };
       }
 
-      if (!Array.isArray(parsed.reviewEvents)) {
-        return { valid: false, error: 'ข้อมูล reviewEvents ต้องอยู่ในรูปแบบ Array' };
+      if (!Array.isArray(parsed.reviewEvents) || !parsed.reviewEvents.every(isReviewEvent)) {
+        return { valid: false, error: 'ข้อมูล reviewEvents มีรูปแบบไม่ถูกต้อง' };
       }
 
-      if (parsed.resources && !Array.isArray(parsed.resources)) {
-        return { valid: false, error: 'ข้อมูล resources ต้องอยู่ในรูปแบบ Array' };
+      if (parsed.schemaVersion === 2 && (!Array.isArray(parsed.resources) || !Array.isArray(parsed.customLessons))) {
+        return { valid: false, error: 'ไฟล์ schemaVersion 2 ต้องมี resources และ customLessons' };
       }
 
-      if (parsed.customLessons && !Array.isArray(parsed.customLessons)) {
-        return { valid: false, error: 'ข้อมูล customLessons ต้องอยู่ในรูปแบบ Array' };
+      if (parsed.resources !== undefined && (!Array.isArray(parsed.resources) || !parsed.resources.every(isResource))) {
+        return { valid: false, error: 'ข้อมูล resources มีรูปแบบไม่ถูกต้อง' };
       }
 
-      return { valid: true, data: parsed as DatabaseExport };
+      if (
+        parsed.customLessons !== undefined &&
+        (!Array.isArray(parsed.customLessons) ||
+          !parsed.customLessons.every((lesson: unknown) => isLesson(lesson) && isRecord(lesson) && lesson.isAiGenerated === true))
+      ) {
+        return { valid: false, error: 'ข้อมูล customLessons มีรูปแบบไม่ถูกต้อง' };
+      }
+
+      return { valid: true, data: parsed as unknown as DatabaseExport };
     } catch (err: unknown) {
       return {
         valid: false,
@@ -334,6 +479,19 @@ export class StorageService implements IStorageService {
   }
 
   async importDatabase(data: DatabaseExport): Promise<void> {
+    let serializedData: string;
+    try {
+      serializedData = JSON.stringify(data);
+    } catch {
+      throw new Error('ข้อมูลนำเข้าไม่สามารถแปลงเป็น JSON ได้');
+    }
+
+    const validation = this.validateImportData(serializedData);
+    if (!validation.valid || !validation.data) {
+      throw new Error(validation.error || 'ข้อมูลนำเข้าไม่ถูกต้อง');
+    }
+    const validatedData = validation.data;
+
     const db = await getDatabase();
 
     // Perform atomic transaction
@@ -349,25 +507,23 @@ export class StorageService implements IStorageService {
     await tx.objectStore('resources').clear();
     await tx.objectStore('lessons').clear();
 
-    if (data.profile) {
-      await tx.objectStore('profiles').put(data.profile);
-    }
-    for (const session of data.sessions || []) {
+    await tx.objectStore('profiles').put(validatedData.profile);
+    for (const session of validatedData.sessions) {
       await tx.objectStore('sessions').put(session);
     }
-    for (const phrase of data.phrases || []) {
+    for (const phrase of validatedData.phrases) {
       await tx.objectStore('phrases').put(phrase);
     }
-    for (const event of data.reviewEvents || []) {
+    for (const event of validatedData.reviewEvents) {
       await tx.objectStore('review_events').put(event);
     }
-    for (const res of data.resources || []) {
+    for (const res of validatedData.resources || []) {
       await tx.objectStore('resources').put(res);
     }
     for (const seed of SEED_LESSONS) {
       await tx.objectStore('lessons').put(seed);
     }
-    for (const custom of data.customLessons || []) {
+    for (const custom of validatedData.customLessons || []) {
       await tx.objectStore('lessons').put(custom);
     }
 

@@ -53,7 +53,7 @@ npm run preview
 | **5. Flashcard Review Modal** | ✅ เสร็จสมบูรณ์ | หน้าต่างทบทวนคำศัพท์คลัง My Phrases แบบ Think-before-reveal พร้อมประเมิน Again / Remembered และอัปเดตสถานะใน IndexedDB ทันที |
 | **6. Custom Learning Resources** | ✅ เสร็จสมบูรณ์ | แนบวิดีโอ YouTube (เล่นในตัว ไม่เก็บคุกกี้), พอดแคสต์, เพลง, ซีนหนัง พร้อมโหมด Shadowing อัดเสียงเทียบ และปุ่ม 1-Click Save to My Phrases |
 | **7. Bulk Text & Subtitle Parser** | ✅ เสร็จสมบูรณ์ | วางเนื้อเพลง, ซับไตเติล SRT/VTT, เวลา (เช่น 01:24), ประโยคสองภาษา (EN/TH) ระบบตัดแบ่งและสกัดคำแปลให้อัตโนมัติในคลิกเดียว |
-| **8. AI Coach (BYOK: Gemini 1.5 Flash)** | ✅ เสร็จสมบูรณ์ | เก็บ API Key ใน Browser LocalStorage 100% ปลอดภัย, มีหน้าต่างตรวจคีย์ใน Settings, AI ให้คำแนะนำสำนวนที่เป็นธรรมชาติใน Step 3 และ Resource Reflection พร้อมเสียงอ่าน TTS |
+| **8. AI Coach (BYOK: Gemini)** | ✅ เสร็จสมบูรณ์ | เก็บ API Key ใน Browser LocalStorage และส่งตรงให้ Google ผ่าน HTTPS header; ไม่มีเซิร์ฟเวอร์กลาง แต่ LocalStorage ไม่ใช่ secure vault, มีหน้าต่างตรวจคีย์ใน Settings และมี fallback เมื่อไม่ได้ใช้ AI |
 | **9. Voice Shadowing & AI Pronunciation Evaluation** | ✅ เสร็จสมบูรณ์ | Speech-to-Text สดในเบราว์เซอร์, วิเคราะห์คำต่อคำแบบออฟไลน์ 0ms, คำนวณ Accuracy Match Score (0–100%), ไฮไลต์คำชัดเจน/ใกล้เคียง/ตกหล่น, และ AI Pronunciation Coach ผ่าน Gemini BYOK |
 | **10. Automated Test Suite** | ✅ เสร็จสมบูรณ์ | 11 ไฟล์ทดสอบ (52 tests ผ่าน 100%) ครอบคลุม Storage, Scheduler, Idempotency, Active Timer, Resources, Bulk Parser, Pronunciation Matcher, และ AI Pronunciation |
 
@@ -137,7 +137,7 @@ daily-english/
 ## 🔒 กฎเหล็กและข้อพึงระวังในการพัฒนาต่อ (Important Constraints)
 
 1. **ห้ามบันทึก Secret / API Key ลงใน Code หรือ Git เด็ดขาด**:
-   - คีย์ AI ของผู้ใช้จะต้องถูกเก็บใน `localStorage` ของผู้ใช้เท่านั้น หรือส่งผ่าน Header ของ Client
+   - ห้ามฝังคีย์ส่วนกลางใน client bundle หรือ `VITE_*`; BYOK ใช้คีย์ของผู้ใช้ ส่งผ่าน HTTPS header โดยแจ้งข้อจำกัดของ LocalStorage ให้ชัดเจน
 2. **Local-First & Data Privacy**:
    - ข้อมูลคำศัพท์และบทเรียนต้องทำงานได้บน IndexedDB ของเครื่องผู้ใช้เสมอ หากไม่มีอินเทอร์เน็ต แอปจะต้องไม่พังและยังเข้าเรียนได้ตามปกติ
 3. **Audio In-Memory Lifecycle**:

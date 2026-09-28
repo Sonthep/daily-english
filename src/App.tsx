@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { AppShell } from './components/layout/AppShell';
-import { OnboardingScreen } from './features/onboarding/OnboardingScreen';
-import { TodayScreen } from './features/today/TodayScreen';
-import { PracticeScreen } from './features/practice/PracticeScreen';
-import { LessonScreen } from './features/lesson/LessonScreen';
-import { ResourcesScreen } from './features/resources/ResourcesScreen';
-import { ResourceStudyScreen } from './features/resources/ResourceStudyScreen';
-import { PhrasesScreen } from './features/phrases/PhrasesScreen';
-import { ProgressScreen } from './features/progress/ProgressScreen';
-import { SettingsScreen } from './features/settings/SettingsScreen';
 import { AppRoute, Profile, Lesson, LearningResource } from './types';
 import { profileRepo, lessonRepo, resourceRepo } from './lib/storage/repositories';
+
+const TodayScreen = lazy(() => import('./features/today/TodayScreen').then((module) => ({ default: module.TodayScreen })));
+const PracticeScreen = lazy(() => import('./features/practice/PracticeScreen').then((module) => ({ default: module.PracticeScreen })));
+const LessonScreen = lazy(() => import('./features/lesson/LessonScreen').then((module) => ({ default: module.LessonScreen })));
+const ResourcesScreen = lazy(() => import('./features/resources/ResourcesScreen').then((module) => ({ default: module.ResourcesScreen })));
+const ResourceStudyScreen = lazy(() => import('./features/resources/ResourceStudyScreen').then((module) => ({ default: module.ResourceStudyScreen })));
+const PhrasesScreen = lazy(() => import('./features/phrases/PhrasesScreen').then((module) => ({ default: module.PhrasesScreen })));
+const ProgressScreen = lazy(() => import('./features/progress/ProgressScreen').then((module) => ({ default: module.ProgressScreen })));
+const SettingsScreen = lazy(() => import('./features/settings/SettingsScreen').then((module) => ({ default: module.SettingsScreen })));
 
 export const App: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -24,7 +24,6 @@ export const App: React.FC = () => {
   const parseRouteFromUrl = (): AppRoute => {
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (!hash || hash === 'today') return { path: 'today' };
-    if (hash === 'onboarding') return { path: 'onboarding' };
     if (hash === 'practice') return { path: 'practice' };
     if (hash === 'resources') return { path: 'resources' };
     if (hash === 'phrases') return { path: 'phrases' };
@@ -76,19 +75,29 @@ export const App: React.FC = () => {
         if (!p) {
           p = await profileRepo.initDefaultProfile();
         }
+        const hasLegacyDefaultProfile =
+          p.displayName === 'ปุ๊ก' &&
+          p.dailyMinutes === 5 &&
+          p.confidence === 'intermediate' &&
+          p.goals.length === 2 &&
+          p.goals.includes('work') &&
+          p.goals.includes('daily');
+        if (!p.onboardingCompleted || hasLegacyDefaultProfile) {
+          p = await profileRepo.saveProfile({
+            ...p,
+            displayName: hasLegacyDefaultProfile ? '' : p.displayName,
+            onboardingCompleted: true,
+          });
+        }
         setProfile(p);
 
         const initialRoute = parseRouteFromUrl();
-        if (!p.onboardingCompleted && initialRoute.path !== 'onboarding') {
-          navigateTo({ path: 'onboarding' });
-        } else {
-          setCurrentRoute(initialRoute);
-          if (initialRoute.path === 'lesson') {
-            await loadLesson(initialRoute.lessonId);
-            setLessonModeMinutes(p.dailyMinutes || 5);
-          } else if (initialRoute.path === 'resource-study') {
-            await loadResource(initialRoute.resourceId);
-          }
+        setCurrentRoute(initialRoute);
+        if (initialRoute.path === 'lesson') {
+          await loadLesson(initialRoute.lessonId);
+          setLessonModeMinutes(p.dailyMinutes || 5);
+        } else if (initialRoute.path === 'resource-study') {
+          await loadResource(initialRoute.resourceId);
         }
       } finally {
         setIsInitializing(false);
@@ -156,19 +165,13 @@ export const App: React.FC = () => {
       onNavigate={navigateTo}
       profile={profile}
     >
-      {currentRoute.path === 'onboarding' && (
-        <OnboardingScreen
-          onComplete={(firstLessonId) => {
-            handleProfileRefresh();
-            handleStartLesson(firstLessonId, profile?.dailyMinutes || 5);
-          }}
-          onSkip={() => {
-            handleProfileRefresh();
-            navigateTo({ path: 'today' });
-          }}
-        />
-      )}
-
+      <Suspense
+        fallback={
+          <div role="status" style={{ padding: 'var(--space-xl)', color: 'var(--color-text-muted)' }}>
+            กำลังโหลดหน้า...
+          </div>
+        }
+      >
       {currentRoute.path === 'today' && (
         <TodayScreen
           onNavigate={navigateTo}
@@ -201,7 +204,9 @@ export const App: React.FC = () => {
         />
       )}
 
-      {currentRoute.path === 'phrases' && <PhrasesScreen />}
+      {currentRoute.path === 'phrases' && (
+        <PhrasesScreen onNavigate={navigateTo} onStartLesson={handleStartLesson} />
+      )}
 
       {currentRoute.path === 'progress' && (
         <ProgressScreen onNavigate={navigateTo} />
@@ -210,6 +215,7 @@ export const App: React.FC = () => {
       {currentRoute.path === 'settings' && (
         <SettingsScreen onProfileUpdated={handleProfileRefresh} />
       )}
+      </Suspense>
     </AppShell>
   );
 };

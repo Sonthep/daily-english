@@ -23,7 +23,7 @@ Daily English ถูกออกแบบมาเพื่อตอบโจท
   - ปุ่ม 1-Click บันทึกวลีเด่นเข้าคลังคำศัพท์ทันที
 - **ผู้ช่วย AI Coach (Bring Your Own Key — Google Gemini)**:
   - รองรับการใส่ Google Gemini API Key ของผู้ใช้เอง (ฟรีจาก Google AI Studio)
-  - เก็บรักษา API Key ใน Browser LocalStorage 100% ปลอดภัย ไม่ส่งผ่านเซิร์ฟเวอร์คนกลาง
+  - เก็บ API Key ใน LocalStorage และส่งตรงไป Google Gemini ผ่าน HTTPS โดยไม่มีเซิร์ฟเวอร์กลาง แต่ JavaScript ในเว็บ origin เดียวกันอาจเข้าถึงคีย์ได้ จึงไม่ใช่ secure vault และไม่ควรใช้คีย์ส่วนกลางหรือคีย์ที่มีสิทธิ์กว้าง
   - ช่วยตรวจประโยค แนะนำสำนวนที่เป็นธรรมชาติแบบเจ้าของภาษา พร้อมคำอธิบายภาษาไทยและเสียงอ่าน TTS
 - **Personal Phrase Bank & Spaced Repetition**:
   - คลังคำศัพท์/วลีส่วนตัว เพิ่ม ลบ แก้ไข ฟังเสียง และระบบคำนวณรอบทบทวน (Heuristic Stage 0..5)
@@ -35,7 +35,7 @@ Daily English ถูกออกแบบมาเพื่อตอบโจท
 
 ## 🛠️ ความต้องการของระบบ (Prerequisites)
 
-- **Node.js**: เวอร์ชัน `>= 18.0.0` (แนะนำ LTS หรือ Node 20+)
+- **Node.js**: เวอร์ชัน `>= 22.12.0` (จำเป็นสำหรับ Vitest 5 และ Playwright tooling)
 - **NPM**: เวอร์ชัน `>= 9.0.0`
 - **เบราว์เซอร์**: Chrome, Edge, Safari หรือ Firefox รุ่นใหม่ที่รองรับ IndexedDB, Web SpeechSynthesis API และ MediaRecorder API
 
@@ -60,7 +60,17 @@ npm run dev
 npm test
 ```
 
-### 4. Build สำหรับ Production
+### 4. รันทดสอบ Browser
+ติดตั้ง Chromium สำหรับ Playwright ครั้งแรก:
+```bash
+npx playwright install chromium
+```
+จากนั้นรัน smoke tests:
+```bash
+npm run test:e2e
+```
+
+### 5. Build สำหรับ Production
 ```bash
 npm run build
 ```

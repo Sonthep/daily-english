@@ -13,9 +13,15 @@ export interface AICoachFeedbackCardProps {
 
 export const AICoachFeedbackCard: React.FC<AICoachFeedbackCardProps> = ({
   feedback,
-  title = 'คำแนะนำจาก AI Coach',
+  title,
   onDismiss,
 }) => {
+  const displayTitle =
+    title ??
+    (feedback.source === 'ai'
+      ? 'คำแนะนำจาก AI Coach'
+      : 'ตัวอย่างแนวทางการตอบ (Self-check)');
+
   const handleSpeak = (text: string) => {
     speechService.speak(text);
   };
@@ -36,10 +42,10 @@ export const AICoachFeedbackCard: React.FC<AICoachFeedbackCardProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Badge variant="primary" icon={<Sparkles size={12} />}>
-            AI Coach
+            {feedback.source === 'ai' ? 'AI Coach' : 'ตัวอย่าง'}
           </Badge>
           <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--color-text)' }}>
-            {title}
+            {displayTitle}
           </span>
         </div>
 

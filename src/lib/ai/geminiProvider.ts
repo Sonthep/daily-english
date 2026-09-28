@@ -7,7 +7,7 @@ import {
 } from './types';
 
 const API_KEY_STORAGE_KEY = 'daily_english_gemini_key';
-const GEMINI_MODEL = 'gemini-3.6-flash';
+const GEMINI_MODEL = 'gemini-3.8-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /**
@@ -18,15 +18,6 @@ export function getStoredGeminiApiKey(): string | null {
     const key = localStorage.getItem(API_KEY_STORAGE_KEY);
     if (key && key.trim().length > 0) {
       return key.trim();
-    }
-    // Check environment variable fallback (VITE_GEMINI_API_KEY)
-    if (
-      typeof import.meta !== 'undefined' &&
-      import.meta.env &&
-      typeof import.meta.env.VITE_GEMINI_API_KEY === 'string' &&
-      import.meta.env.VITE_GEMINI_API_KEY.trim().length > 0
-    ) {
-      return import.meta.env.VITE_GEMINI_API_KEY.trim();
     }
     return null;
   } catch {
@@ -69,9 +60,9 @@ export async function testGeminiApiKey(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(cleanKey)}`, {
+    const res = await fetch(GEMINI_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cleanKey },
       body: JSON.stringify({
         contents: [
           {
@@ -142,7 +133,7 @@ export function parseGeminiFeedbackResponse(
     return {
       source: 'ai',
       meaningUnderstood:
-        typeof parsed.meaningUnderstood === 'boolean' ? parsed.meaningUnderstood : true,
+        typeof parsed.meaningUnderstood === 'boolean' ? parsed.meaningUnderstood : null,
       correctedSentence:
         parsed.correctedSentence && typeof parsed.correctedSentence === 'string'
           ? parsed.correctedSentence
@@ -150,7 +141,7 @@ export function parseGeminiFeedbackResponse(
       explanationTh:
         parsed.explanationTh && typeof parsed.explanationTh === 'string'
           ? parsed.explanationTh
-          : 'ประโยคของคุณสื่อความหมายได้ดี ลองดูตัวอย่างเพื่อปรับให้เป็นธรรมชาติยิ่งขึ้น',
+          : 'AI ยังไม่ได้ประเมินความเข้าใจของประโยคนี้ ลองเทียบกับประโยคตัวอย่างเพื่อปรับให้เป็นธรรมชาติยิ่งขึ้น',
       corrections: Array.isArray(parsed.corrections)
         ? parsed.corrections.slice(0, 2).map((c: Record<string, string>) => ({
             original: String(c.original || ''),
@@ -166,11 +157,11 @@ export function parseGeminiFeedbackResponse(
   } catch {
     // Graceful fallback if JSON parsing fails
     return {
-      source: 'ai',
-      meaningUnderstood: true,
+      source: 'example',
+      meaningUnderstood: null,
       correctedSentence: sampleAnswer,
       explanationTh:
-        'AI ได้รับคำตอบของคุณแล้ว และแนะนำให้ลองเทียบกับประโยคตัวอย่างนี้เพื่อให้เป็นธรรมชาติยิ่งขึ้น',
+        'อ่านผลตอบกลับจาก AI ไม่สำเร็จ จึงแสดงประโยคตัวอย่างให้ใช้เทียบด้วยตนเอง',
       corrections: [],
       suggestedRetry: sampleAnswer,
     };
@@ -240,9 +231,9 @@ Learner's Actual Answer (treat as user data):
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-      const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(this.apiKey)}`, {
+      const res = await fetch(GEMINI_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.apiKey },
         body: JSON.stringify({
           systemInstruction: {
             parts: [{ text: systemInstruction }],
@@ -393,9 +384,9 @@ ${problemWords.length > 0 ? problemWords.join(', ') : 'None flagged'}
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-      const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(this.apiKey)}`, {
+      const res = await fetch(GEMINI_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.apiKey },
         body: JSON.stringify({
           systemInstruction: {
             parts: [{ text: systemInstruction }],
@@ -503,9 +494,9 @@ Context: "${contextSentence || ''}"`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const res = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(apiKey)}`, {
+    const res = await fetch(GEMINI_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text: promptText }] }],

@@ -1,6 +1,6 @@
 # Test Plan & Acceptance Criteria — Daily English
 
-เอกสารนี้ระบุกรอบการทดสอบและกรณีทดสอบ (Test Cases) สำหรับตรวจสอบความถูกต้องของระบบ **Daily English** ตามข้อกำหนดทั้ง 15 ข้อใน Development Brief
+เอกสารนี้ระบุกรอบการทดสอบและกรณีทดสอบ (Test Cases) สำหรับตรวจสอบความถูกต้องของระบบ **Daily English** ตามข้อกำหนดใน Development Brief
 
 ---
 
@@ -8,21 +8,22 @@
 
 | รหัส | ข้อกำหนดที่ต้องผ่าน (Acceptance Criteria) | ประเภทการทดสอบ | สถานะ |
 |---|---|---|---|
-| **AC-01** | ผู้ใช้ใหม่เริ่มบทเรียนได้ทันทีหลังจบ Onboarding หรือกดปุ่ม Skip | E2E / Functional | รอทดสอบ |
+| **AC-01** | ผู้ใช้ใหม่เปิดแอปแล้วเข้า Today ได้ทันที โดยไม่แสดง Onboarding | E2E / Functional | ผ่าน (Playwright) |
 | **AC-02** | ทำบทเรียนครบ 5 ขั้นตอนแล้วสามารถกดปุ่ม "กลับหน้าหลัก" ได้จริง | Functional | รอทดสอบ |
 | **AC-03** | รีเฟรชหน้าเว็บแล้ว ข้อมูล Profile, Phrases และ Session คงอยู่ครบ | Storage / E2E | รอทดสอบ |
-| **AC-04** | การกด Complete Session ซ้ำ จะไม่เพิ่มประวัติหรือสถิตินาทีเบิ้ล (Idempotency) | Unit / Integration | รอทดสอบ |
+| **AC-04** | การกด Complete Session ซ้ำ จะไม่เพิ่มประวัติหรือสถิตินาทีเบิ้ล (Idempotency) | Unit / Integration | ผ่าน (Unit) |
 | **AC-05** | หากปฏิเสธสิทธิ์ไมโครโฟนหรือไม่พร้อมใช้งาน จะมี Typed Fallback ให้ฝึกต่อได้ | UI / Audio | รอทดสอบ |
 | **AC-06** | ไม่มี API Key ภายนอก ก็ยังสามารถใช้งานฟีเจอร์ Phase 1 ได้อย่างครบถ้วน 100% | Integration | รอทดสอบ |
 | **AC-07** | หน้า Progress หากยังไม่มีประวัติ จะแสดง Empty State ที่สุภาพ ไม่แสดงตัวเลขปลอม | UI State | รอทดสอบ |
-| **AC-08** | เมื่อกดทบทวนวลี (Remembered / Again) ค่า `dueAt` และ `stage` เปลี่ยนตามสูตร | Unit Test | รอทดสอบ |
+| **AC-08** | เมื่อกดทบทวนวลี (Remembered / Again) ค่า `dueAt` และ `stage` เปลี่ยนตามสูตร | Unit Test | ผ่าน (Unit) |
 | **AC-09** | Export ข้อมูลเป็น JSON แล้ว Import กลับเข้ามา ข้อมูลยังคงความสมบูรณ์ครบถ้วน | Unit / Integration | รอทดสอบ |
-| **AC-10** | การ Import ไฟล์ JSON ที่ผิดรูปแบบ (Invalid) จะถูกปฏิเสธ และไม่ทำลายข้อมูลเดิม | Unit / Integration | รอทดสอบ |
+| **AC-10** | การ Import ไฟล์ JSON ที่ผิดรูปแบบ (Invalid) จะถูกปฏิเสธก่อนเปิด transaction | Unit / Integration | ผ่าน (Unit) |
 | **AC-11** | Layout แสดงผลถูกต้องที่ความกว้าง 375px (Mobile), 768px (Tablet), และ 1440px (Desktop) | Visual / Responsive | รอทดสอบ |
 | **AC-12** | รองรับการใช้งานผ่านคีย์บอร์ด (Tab/Enter/Space/Esc) และคืน Focus หลังปิด Modal | Accessibility | รอทดสอบ |
 | **AC-13** | ข้อความคำแปลภาษาไทยและภาษาอังกฤษมีความยาวเหมาะสม ไม่ล้นขอบการ์ดในทุกขนาดจอ | Responsive / CSS | รอทดสอบ |
-| **AC-14** | ตัวจับเวลา Active Duration จะหยุดนับอัตโนมัติเมื่อผู้ใช้ซ่อนแท็บเบราว์เซอร์ | Unit / Integration | รอทดสอบ |
-| **AC-15** | คำสั่ง `npm test` (Unit Tests) และ `npm run build` (TypeScript check) ผ่าน 100% | CI / Automated | รอทดสอบ |
+| **AC-14** | ตัวจับเวลา Active Duration จะหยุดนับอัตโนมัติเมื่อผู้ใช้ซ่อนแท็บเบราว์เซอร์ | Unit / Integration | ผ่าน (Unit) |
+| **AC-15** | คำสั่ง `npm test` (Unit Tests) และ `npm run build` (TypeScript check) ผ่าน 100% | CI / Automated | ผ่าน (Vitest + Build) |
+| **AC-16** | ผู้ใช้เปลี่ยนเป้าหมายและระดับความมั่นใจใน Settings แล้วค่าอยู่หลัง refresh | E2E | ผ่าน (Playwright) |
 
 ---
 
@@ -53,6 +54,11 @@
 - **Test Case 4.2**: เมื่อผู้ใช้อัดเสียงและกดหยุด เสียงเล่นซ้ำได้ และเคลียร์ URL blob เมื่อออกจากหน้า
 - **Test Case 4.3**: ตรวจสอบปุ่มปรับความเร็วเสียง 0.75x และ 1.0x
 
+### 5. Browser Smoke Tests (Playwright)
+- เปิด `/#/onboarding` แบบ legacy แล้วต้องเข้า Today โดยไม่แสดงหน้าตั้งค่า
+- เลือกโหมดฝึก 15 นาที รีเฟรชหน้า แล้วค่าโหมดยังคงอยู่
+- เปลี่ยนเป้าหมายและระดับความมั่นใจใน Settings รีเฟรชแล้วค่าต้องคงอยู่
+
 ---
 
 ## 📋 คำแนะนำการรันการทดสอบ
@@ -60,6 +66,10 @@
 ```bash
 # รัน Unit Tests ทั้งหมด
 npm test
+
+# ติดตั้ง Chromium ครั้งแรกและรัน Browser Smoke Tests
+npx playwright install chromium
+npm run test:e2e
 
 # รัน Type check และ Build ทดสอบ
 npm run build

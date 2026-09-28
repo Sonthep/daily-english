@@ -1,0 +1,42 @@
+import { expect, test } from '@playwright/test';
+
+test('legacy onboarding links open Today for new users', async ({ page }) => {
+  await page.goto('/#/onboarding');
+
+  await expect(page.getByRole('heading', { name: /ยินดีต้อนรับ/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /เริ่มฝึกวันนี้/ })).toBeVisible();
+});
+
+test('selected daily practice duration persists after refresh', async ({ page }) => {
+  await page.goto('/#/today');
+
+  const durationOptions = page.getByRole('group', { name: 'เลือกระยะเวลาฝึกฝน' });
+  const fifteenMinuteOption = durationOptions.getByRole('button', { name: /15 นาที/ });
+  await expect(fifteenMinuteOption).toBeVisible();
+  await fifteenMinuteOption.click();
+  await expect(fifteenMinuteOption).toHaveAttribute('aria-pressed', 'true');
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /ยินดีต้อนรับ/ })).toBeVisible();
+  await expect(
+    page.getByRole('group', { name: 'เลือกระยะเวลาฝึกฝน' }).getByRole('button', { name: /15 นาที/ })
+  ).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('profile goal and confidence can be changed in Settings', async ({ page }) => {
+  await page.goto('/#/settings');
+
+  const goalSelect = page.getByLabel('เป้าหมายหลักในการฝึก');
+  const confidenceSelect = page.getByLabel('ระดับความมั่นใจในภาษาอังกฤษ');
+  await expect(goalSelect).toHaveValue('daily');
+  await expect(confidenceSelect).toHaveValue('beginner');
+
+  await goalSelect.selectOption('gaming');
+  await confidenceSelect.selectOption('advancing');
+  await page.getByRole('button', { name: 'บันทึกข้อมูล' }).click();
+  await expect(page.getByText('บันทึกการเปลี่ยนแปลงแล้ว')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel('เป้าหมายหลักในการฝึก')).toHaveValue('gaming');
+  await expect(page.getByLabel('ระดับความมั่นใจในภาษาอังกฤษ')).toHaveValue('advancing');
+});

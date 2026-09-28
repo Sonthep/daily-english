@@ -1381,7 +1381,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               lineHeight: 1.5,
             }}
           >
-            🔒 <strong>ความเป็นส่วนตัว:</strong> คีย์จะถูกบันทึกไว้ใน Browser LocalStorage ของเครื่องคุณเท่านั้น
+            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป Google Gemini เมื่อใช้ AI; JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้
             <div style={{ marginTop: '4px' }}>
               ✨ สามารถขอรับ API Key ฟรีได้ที่{' '}
               <a

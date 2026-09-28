@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { lookupWordWithGemini } from '../src/lib/ai/geminiProvider';
+import { lookupWordWithGemini, setStoredGeminiApiKey } from '../src/lib/ai/geminiProvider';
 import { createNewPhrase, calculateNextReview } from '../src/lib/review/scheduler';
 import { phraseRepo } from '../src/lib/storage/repositories';
 
@@ -18,6 +18,7 @@ describe('Word Collector & Flashcard Feature', () => {
 
     it('cleans punctuation around words and falls back gracefully when offline/no mock', async () => {
       // Mock fetch failure to test graceful fallback
+      setStoredGeminiApiKey('test-api-key');
       vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network offline'));
       const res = await lookupWordWithGemini('"opportunity!"', 'We must seize every opportunity.');
       expect(res.th).toBeDefined();
@@ -25,6 +26,7 @@ describe('Word Collector & Flashcard Feature', () => {
     });
 
     it('parses valid AI JSON response when Gemini returns word details', async () => {
+      setStoredGeminiApiKey('test-api-key');
       const mockGeminiResponse = {
         candidates: [
           {

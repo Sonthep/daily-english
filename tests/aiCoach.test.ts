@@ -19,6 +19,11 @@ describe('AI Coach & Gemini BYOK Provider', () => {
   });
 
   describe('API Key Storage Helpers', () => {
+    it('does not read API keys from frontend environment variables', () => {
+      vi.stubEnv('VITE_GEMINI_API_KEY', 'client-bundled-key');
+      expect(getStoredGeminiApiKey()).toBeNull();
+    });
+
     it('stores, retrieves, and clears API key in localStorage', () => {
       expect(getStoredGeminiApiKey()).toBeNull();
 
@@ -79,6 +84,16 @@ describe('AI Coach & Gemini BYOK Provider', () => {
       expect(parsed.corrections[0].improved).toBe('worked on the mobile checkout flow');
     });
 
+    it('does not assume meaning was understood when the model omits the assessment', () => {
+      const parsed = parseGeminiFeedbackResponse(
+        JSON.stringify({ correctedSentence: 'Today, I worked on the mobile checkout flow.' }),
+        sample
+      );
+
+      expect(parsed.source).toBe('ai');
+      expect(parsed.meaningUnderstood).toBeNull();
+    });
+
     it('strips markdown code blocks (```json ... ```)', () => {
       const wrapped = '```json\n{"meaningUnderstood": true, "correctedSentence": "It is nice.", "explanationTh": "ดีมาก", "corrections": [], "suggestedRetry": "It is nice."}\n```';
       const parsed = parseGeminiFeedbackResponse(wrapped, sample);
@@ -89,13 +104,36 @@ describe('AI Coach & Gemini BYOK Provider', () => {
     it('falls back gracefully to sample answer on malformed JSON', () => {
       const invalid = 'Not a JSON text at all, just model gibberish!';
       const parsed = parseGeminiFeedbackResponse(invalid, sample);
-      expect(parsed.source).toBe('ai');
+      expect(parsed.source).toBe('example');
+      expect(parsed.meaningUnderstood).toBeNull();
       expect(parsed.correctedSentence).toBe(sample);
-      expect(parsed.explanationTh).toBeDefined();
+      expect(parsed.explanationTh).toContain('อ่านผลตอบกลับจาก AI ไม่สำเร็จ');
     });
   });
 
   describe('GeminiTutorProvider Behavior', () => {
+    it('sends the API key in a request header instead of the URL', async () => {
+      const responseText = JSON.stringify({
+        meaningUnderstood: true,
+        correctedSentence: 'I designed a logo.',
+        explanationTh: 'ชัดเจนดี',
+        corrections: [],
+        suggestedRetry: 'I designed a logo.',
+      });
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ candidates: [{ content: { parts: [{ text: responseText }] } }] }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const provider = new GeminiTutorProvider('test-api-key');
+      await provider.getFeedback('What did you design?', 'คุณออกแบบอะไร?', 'I designed a logo.', 'I made a logo.');
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).not.toContain('test-api-key');
+      expect(init.headers).toMatchObject({ 'x-goog-api-key': 'test-api-key' });
+    });
+
     it('handles empty user answers without calling network', async () => {
       const provider = new GeminiTutorProvider('fakeKey');
       const feedback = await provider.getFeedback(

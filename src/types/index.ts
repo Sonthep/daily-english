@@ -132,7 +132,6 @@ export interface DatabaseExport {
 
 export type AppRoute =
   | { path: 'today' }
-  | { path: 'onboarding' }
   | { path: 'practice' }
   | { path: 'lesson'; lessonId: string }
   | { path: 'resources' }
