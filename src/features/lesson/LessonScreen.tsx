@@ -1367,8 +1367,8 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       <Modal
         isOpen={isNoKeyModalOpen}
         onClose={() => setIsNoKeyModalOpen(false)}
-        title="เปิดใช้งานผู้ช่วย AI Coach (Google Gemini)"
-        description="ใส่ Gemini API Key ของคุณเพื่อเริ่มใช้งานระบบตรวจประโยคและแนะนำสำนวนภาษาอังกฤษ"
+        title="เปิดใช้งานผู้ช่วย AI Coach (OpenRouter)"
+        description="ใส่ OpenRouter API Key ของคุณเพื่อเริ่มใช้งานระบบตรวจประโยคและแนะนำสำนวนภาษาอังกฤษ"
       >
         <form onSubmit={handleSaveQuickKey} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           <div
@@ -1381,7 +1381,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               lineHeight: 1.5,
             }}
           >
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป Google Gemini เมื่อใช้ AI; JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้
+            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป OpenRouter เมื่อใช้ AI; JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้
             <div style={{ marginTop: '4px' }}>
               ✨ สามารถขอรับ API Key ฟรีได้ที่{' '}
               <a
@@ -1400,7 +1400,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               htmlFor="quick-gemini-key"
               style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
             >
-              Google Gemini API Key:
+              OpenRouter API Key:
             </label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <Key size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '12px' }} />

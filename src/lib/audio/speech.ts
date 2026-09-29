@@ -7,6 +7,7 @@
 export type VoiceGender = 'male' | 'female';
 
 const VOICE_GENDER_STORAGE_KEY = 'daily_english_voice_gender';
+const VOICE_URI_STORAGE_KEY = 'daily_english_voice_uri';
 
 export function getStoredVoiceGender(): VoiceGender {
   try {
@@ -24,6 +25,36 @@ export function setStoredVoiceGender(gender: VoiceGender): void {
   } catch (err) {
     console.warn('Unable to persist voice gender preference', err);
   }
+}
+
+export function getStoredVoiceURI(): string {
+  try {
+    return localStorage.getItem(VOICE_URI_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setStoredVoiceURI(voiceURI: string): void {
+  try {
+    if (voiceURI) localStorage.setItem(VOICE_URI_STORAGE_KEY, voiceURI);
+    else localStorage.removeItem(VOICE_URI_STORAGE_KEY);
+  } catch (err) {
+    console.warn('Unable to persist voice preference', err);
+  }
+}
+
+export function rankEnglishVoices(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
+  const englishVoices = voices.filter((voice) => /^en([-_]|$)/i.test(voice.lang));
+  const naturalTerms = ['natural', 'neural', 'online', 'google', 'siri', 'premium'];
+  const score = (voice: SpeechSynthesisVoice) => {
+    const name = voice.name.toLowerCase();
+    const localeScore = /^en[-_]us/i.test(voice.lang) ? 100 : 0;
+    const naturalScore = naturalTerms.some((term) => name.includes(term)) ? 50 : 0;
+    const serviceScore = voice.localService === false ? 10 : 0;
+    return localeScore + naturalScore + serviceScore;
+  };
+  return englishVoices.sort((a, b) => score(b) - score(a));
 }
 
 export interface SpeechSupportStatus {
@@ -90,6 +121,11 @@ class SpeechService {
     this.isLoaded = this.voices.length > 0;
   }
 
+  public getEnglishVoices(): SpeechSynthesisVoice[] {
+    if (this.voices.length === 0) this.initVoices();
+    return rankEnglishVoices(this.voices);
+  }
+
   public checkSupport(): SpeechSupportStatus {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       return { supported: false, hasEnglishVoice: false, voiceName: null, gender: getStoredVoiceGender() };
@@ -110,38 +146,28 @@ class SpeechService {
   }
 
   public getBestEnglishVoice(gender: VoiceGender = getStoredVoiceGender()): SpeechSynthesisVoice | null {
-    if (this.voices.length === 0) {
-      this.initVoices();
-    }
-
-    const enUsVoices = this.voices.filter((v) => v.lang.startsWith('en-US') || v.lang.startsWith('en_US'));
-    const anyEnVoices = this.voices.filter((v) => v.lang.startsWith('en'));
-    const candidateVoices = enUsVoices.length > 0 ? enUsVoices : anyEnVoices;
+    const candidateVoices = this.getEnglishVoices();
+    const selectedVoice = candidateVoices.find((voice) => voice.voiceURI === getStoredVoiceURI());
+    if (selectedVoice) return selectedVoice;
+    const naturalTerms = ['natural', 'neural', 'online', 'google', 'siri', 'premium'];
+    const naturalVoice = candidateVoices.find((voice) =>
+      naturalTerms.some((term) => voice.name.toLowerCase().includes(term)) || voice.localService === false
+    );
+    if (naturalVoice) return naturalVoice;
 
     if (gender === 'male') {
-      // 1. Natural / Online male voices
-      const naturalMale = candidateVoices.find((v) => {
-        const name = v.name.toLowerCase();
-        return (name.includes('natural') || name.includes('online') || name.includes('google')) &&
-          MALE_VOICE_NAMES.some((k) => name.includes(k));
-      });
-      if (naturalMale) return naturalMale;
-
-      // 2. Any explicit male English voice (e.g. "Microsoft David", "Alex")
       const anyMale = candidateVoices.find((v) => {
         const name = v.name.toLowerCase();
         return MALE_VOICE_NAMES.some((k) => name.includes(k));
       });
       if (anyMale) return anyMale;
 
-      // 3. Fallback: exclude known female voices
       const nonFemale = candidateVoices.find((v) => {
         const name = v.name.toLowerCase();
         return !FEMALE_VOICE_NAMES.some((k) => name.includes(k));
       });
       if (nonFemale) return nonFemale;
     } else {
-      // Female voice requested
       const female = candidateVoices.find((v) => {
         const name = v.name.toLowerCase();
         return FEMALE_VOICE_NAMES.some((k) => name.includes(k));
@@ -179,8 +205,7 @@ class SpeechService {
         utterance.voice = voice;
       }
 
-      // Male voices sound richer with slightly lower pitch (0.92), female with 1.05
-      utterance.pitch = gender === 'male' ? 0.92 : 1.05;
+      utterance.pitch = 1.0;
 
       utterance.onend = () => {
         this.currentUtterance = null;

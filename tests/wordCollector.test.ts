@@ -28,22 +28,16 @@ describe('Word Collector & Flashcard Feature', () => {
     it('parses valid AI JSON response when Gemini returns word details', async () => {
       setStoredGeminiApiKey('test-api-key');
       const mockGeminiResponse = {
-        candidates: [
-          {
-            content: {
-              parts: [
-                {
-                  text: JSON.stringify({
-                    th: 'โอกาส, จังหวะที่เหมาะสม',
-                    partOfSpeech: 'noun',
-                    phonetic: '/ˌɑː.pɚˈtuː.nə.t̬i/',
-                    example: 'This represents a huge opportunity for our team.',
-                  }),
-                },
-              ],
-            },
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              th: 'โอกาส, จังหวะที่เหมาะสม',
+              partOfSpeech: 'noun',
+              phonetic: '/ˌɑː.pɚˈtuː.nə.t̬i/',
+              example: 'This represents a huge opportunity for our team.',
+            }),
           },
-        ],
+        }],
       };
 
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({

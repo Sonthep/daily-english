@@ -1,8 +1,9 @@
 import { ResourceSentence, TargetPhrase } from '../../types';
 import { getStoredGeminiApiKey } from '../ai/geminiProvider';
 import { extractYouTubeId } from './mediaUtils';
+import { getOpenRouterApiUrl } from '../ai/openRouterConfig';
 
-const CANDIDATE_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+const CANDIDATE_MODELS = ['qwen/qwen3.8-27b:free', 'google/gemma-4-26b-a4b-it:free'];
 
 function formatGeminiError(errText: string, status?: number): string {
   try {
@@ -17,9 +18,9 @@ function formatGeminiError(errText: string, status?: number): string {
 }
 
 /**
- * Calls Gemini generateContent endpoint, trying candidate models in order if 404 (model deprecated) occurs.
+ * Calls OpenRouter chat completions, trying a free fallback model if the primary fails.
  */
-async function callGeminiGenerateContent(
+async function callOpenRouterChat(
   apiKey: string,
   body: Record<string, unknown>,
   signal?: AbortSignal
@@ -28,12 +29,38 @@ async function callGeminiGenerateContent(
   let lastErrorText = '';
 
   for (const model of CANDIDATE_MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     try {
-      const res = await fetch(url, {
+      const systemInstruction = body.systemInstruction as any;
+      const systemText = typeof systemInstruction === 'string'
+        ? systemInstruction
+        : systemInstruction?.parts?.map((part: any) => String(part.text || '')).join('\n') || '';
+      const sourceContents = Array.isArray(body.contents) ? body.contents : [];
+      const messages = sourceContents.map((item: any) => ({
+        role: item.role || 'user',
+        content: Array.isArray(item.parts)
+          ? item.parts.map((part: any) => part.fileData
+            ? { type: 'video_url', video_url: { url: part.fileData.fileUri } }
+            : { type: 'text', text: String(part.text || '') })
+          : String(item.content || ''),
+      }));
+      if (systemText) messages.unshift({ role: 'system', content: systemText } as any);
+
+      const res = await fetch(getOpenRouterApiUrl(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(body),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'X-Free-Fallback': 'false',
+          'X-Title': 'Daily English',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: (body.generationConfig as any)?.temperature ?? 0.3,
+          max_tokens: (body.generationConfig as any)?.maxOutputTokens ?? 2048,
+          response_format: { type: 'json_object' },
+          reasoning: { effort: 'none' },
+        }),
         signal,
       });
 
@@ -41,11 +68,10 @@ async function callGeminiGenerateContent(
         return res;
       }
 
-      // If 404 Not Found (model not available or deprecated), try next model
-      if (res.status === 404) {
+      if (res.status === 404 || res.status === 429 || res.status >= 500) {
         lastResponse = res;
         lastErrorText = await res.text();
-        console.warn(`Gemini model ${model} returned 404, trying next fallback model...`);
+        console.warn(`OpenRouter model ${model} returned ${res.status}, trying next fallback model...`);
         continue;
       }
 
@@ -58,11 +84,11 @@ async function callGeminiGenerateContent(
   }
 
   if (lastResponse) {
-    const friendly = formatGeminiError(lastErrorText, 404);
-    throw new Error(`Gemini API error (404): ${friendly}`);
+    const friendly = formatGeminiError(lastErrorText, lastResponse.status);
+    throw new Error(`OpenRouter API error (${lastResponse.status}): ${friendly}`);
   }
 
-  throw new Error('ไม่สามารถเชื่อมต่อกับ Google Gemini ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือ API Key');
+  throw new Error('ไม่สามารถเชื่อมต่อกับ OpenRouter ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือ API Key');
 }
 
 /**
@@ -267,7 +293,7 @@ export interface TranscribeResult {
 }
 
 /**
- * Transcribes and extracts key spoken English sentences from a video using Google Gemini.
+ * Transcribes and extracts key spoken English sentences from a video using OpenRouter.
  * Uses multimodal understanding for YouTube videos or deep reasoning with video title/context.
  */
 export async function transcribeVideoWithGemini(
@@ -275,7 +301,7 @@ export async function transcribeVideoWithGemini(
 ): Promise<TranscribeResult> {
   const apiKey = (options.apiKey || getStoredGeminiApiKey() || '').trim();
   if (!apiKey) {
-    throw new Error('กรุณาระบุ Google Gemini API Key เพื่อถอดประโยคด้วย AI');
+    throw new Error('กรุณาระบุ OpenRouter API Key เพื่อถอดประโยคด้วย AI');
   }
 
   const sentenceCount = options.count || 8;
@@ -334,7 +360,7 @@ Ensure every sentence has an accurate timestamp (mm:ss) and natural Thai transla
 
   let res: Response;
   try {
-    res = await callGeminiGenerateContent(
+    res = await callOpenRouterChat(
       apiKey,
       {
         systemInstruction: {
@@ -371,11 +397,11 @@ Ensure every sentence has an accurate timestamp (mm:ss) and natural Thai transla
       return transcribeWithTextPromptFallback(options, apiKey);
     }
     const errBody = await res.text();
-    throw new Error(`Gemini API error (${res.status}): ${formatGeminiError(errBody, res.status)}`);
+    throw new Error(`OpenRouter API error (${res.status}): ${formatGeminiError(errBody, res.status)}`);
   }
 
   const data = await res.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const rawText = data?.choices?.[0]?.message?.content || '';
   return parseTranscribeApiResponse(rawText, options.videoTitle);
 }
 
@@ -411,7 +437,7 @@ Output MUST be strict JSON:
   ]
 }`;
 
-  const res = await callGeminiGenerateContent(apiKey, {
+  const res = await callOpenRouterChat(apiKey, {
     contents: [{ role: 'user', parts: [{ text: promptText }] }],
     generationConfig: {
       temperature: 0.3,
@@ -422,16 +448,16 @@ Output MUST be strict JSON:
 
   if (!res.ok) {
     const errBody = await res.text();
-    throw new Error(`Gemini error (${res.status}): ${formatGeminiError(errBody, res.status)}`);
+    throw new Error(`OpenRouter error (${res.status}): ${formatGeminiError(errBody, res.status)}`);
   }
 
   const data = await res.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const rawText = data?.choices?.[0]?.message?.content || '';
   return parseTranscribeApiResponse(rawText, options.videoTitle);
 }
 
 /**
- * Parses Gemini API JSON output into valid ResourceSentence and TargetPhrase items.
+ * Parses OpenRouter JSON output into valid ResourceSentence and TargetPhrase items.
  */
 function parseTranscribeApiResponse(rawText: string, _videoTitle: string): TranscribeResult {
   try {
@@ -474,7 +500,7 @@ function parseTranscribeApiResponse(rawText: string, _videoTitle: string): Trans
 }
 
 /**
- * Translates English sentences to Thai in batch using Gemini API.
+ * Translates English sentences to Thai in batch using OpenRouter.
  */
 export async function translateSentencesWithGemini(
   sentences: ResourceSentence[],
@@ -482,7 +508,7 @@ export async function translateSentencesWithGemini(
 ): Promise<ResourceSentence[]> {
   const cleanKey = (apiKey || getStoredGeminiApiKey() || '').trim();
   if (!cleanKey) {
-    throw new Error('กรุณาระบุ Google Gemini API Key เพื่อแปลภาษา');
+    throw new Error('กรุณาระบุ OpenRouter API Key เพื่อแปลภาษา');
   }
 
   const untranslated = sentences.filter((s) => !s.th || !s.th.trim());
@@ -500,7 +526,7 @@ Output JSON array strictly:
   { "id": "string", "th": "คำแปลภาษาไทยที่เป็นธรรมชาติ" }
 ]`;
 
-  const res = await callGeminiGenerateContent(cleanKey, {
+  const res = await callOpenRouterChat(cleanKey, {
     contents: [{ role: 'user', parts: [{ text: promptText }] }],
     generationConfig: {
       temperature: 0.2,
@@ -510,11 +536,11 @@ Output JSON array strictly:
 
   if (!res.ok) {
     const errBody = await res.text();
-    throw new Error(`Gemini translation error (${res.status}): ${formatGeminiError(errBody, res.status)}`);
+    throw new Error(`OpenRouter translation error (${res.status}): ${formatGeminiError(errBody, res.status)}`);
   }
 
   const data = await res.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const rawText = data?.choices?.[0]?.message?.content || '';
   const parsed = JSON.parse(
     rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim()
   );

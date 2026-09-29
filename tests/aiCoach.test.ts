@@ -20,15 +20,15 @@ describe('AI Coach & Gemini BYOK Provider', () => {
 
   describe('API Key Storage Helpers', () => {
     it('does not read API keys from frontend environment variables', () => {
-      vi.stubEnv('VITE_GEMINI_API_KEY', 'client-bundled-key');
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'client-bundled-key');
       expect(getStoredGeminiApiKey()).toBeNull();
     });
 
     it('stores, retrieves, and clears API key in localStorage', () => {
       expect(getStoredGeminiApiKey()).toBeNull();
 
-      setStoredGeminiApiKey('AIzaSyFakeKey12345');
-      expect(getStoredGeminiApiKey()).toBe('AIzaSyFakeKey12345');
+      setStoredGeminiApiKey('sk-or-v1-fake-key');
+      expect(getStoredGeminiApiKey()).toBe('sk-or-v1-fake-key');
 
       clearStoredGeminiApiKey();
       expect(getStoredGeminiApiKey()).toBeNull();
@@ -51,7 +51,7 @@ describe('AI Coach & Gemini BYOK Provider', () => {
     });
 
     it('returns GeminiTutorProvider when key is saved', () => {
-      setStoredGeminiApiKey('AIzaSyActiveKey');
+      setStoredGeminiApiKey('sk-or-v1-active-key');
       const provider = getActiveTutorProvider();
       expect(provider).toBeInstanceOf(GeminiTutorProvider);
     });
@@ -131,7 +131,8 @@ describe('AI Coach & Gemini BYOK Provider', () => {
 
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).not.toContain('test-api-key');
-      expect(init.headers).toMatchObject({ 'x-goog-api-key': 'test-api-key' });
+      expect(init.headers).toMatchObject({ Authorization: 'Bearer test-api-key', 'X-Free-Fallback': 'false' });
+      expect(String(url)).toMatch(/(?:\/api\/openrouter\/chat\/completions|https:\/\/openrouter\.ai\/api\/v1\/chat\/completions)$/);
     });
 
     it('handles empty user answers without calling network', async () => {

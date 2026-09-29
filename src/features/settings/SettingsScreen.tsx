@@ -28,7 +28,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { usePwaInstall } from '../../lib/pwa/usePwaInstall';
-import { speechService, getStoredVoiceGender, setStoredVoiceGender, VoiceGender } from '../../lib/audio/speech';
+import { speechService, getStoredVoiceGender, setStoredVoiceGender, getStoredVoiceURI, setStoredVoiceURI, VoiceGender } from '../../lib/audio/speech';
 
 export interface SettingsScreenProps {
   onProfileUpdated: () => void;
@@ -65,10 +65,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
 
   // Voice Gender State
   const [voiceGender, setVoiceGender] = useState<VoiceGender>(() => getStoredVoiceGender());
+  const [voiceURI, setVoiceURI] = useState(() => getStoredVoiceURI());
+  const [englishVoices, setEnglishVoices] = useState<SpeechSynthesisVoice[]>(() => speechService.getEnglishVoices());
 
   const handleSelectVoiceGender = (gender: VoiceGender) => {
     setVoiceGender(gender);
     setStoredVoiceGender(gender);
+    setVoiceURI('');
+    setStoredVoiceURI('');
     speechService.speak(
       gender === 'male'
         ? "This is the male voice. Let's practice English together!"
@@ -78,6 +82,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
       undefined,
       gender
     );
+  };
+
+  const handleSelectVoice = (selectedVoiceURI: string) => {
+    setVoiceURI(selectedVoiceURI);
+    setStoredVoiceURI(selectedVoiceURI);
+    speechService.speak('Hello! Let us practice English together.', 1.0, undefined, undefined, voiceGender);
   };
 
   const handleTestVoice = () => {
@@ -104,6 +114,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
       setGeminiKey(getStoredGeminiApiKey() || '');
     };
     loadProfile();
+  }, []);
+
+  useEffect(() => {
+    const updateVoices = () => setEnglishVoices(speechService.getEnglishVoices());
+    updateVoices();
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoices);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoices);
   }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -392,13 +410,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
             </select>
           </div>
 
-          {/* Voice Gender Selection */}
+          {/* English Voice Selection */}
           <div>
             <label
+              htmlFor="english-voice-select"
               style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '8px' }}
             >
-              เสียงอ่านภาษาอังกฤษ (Text-to-Speech)
+              เสียงอ่านภาษาอังกฤษ
             </label>
+            <select
+              id="english-voice-select"
+              value={voiceURI}
+              onChange={(event) => handleSelectVoice(event.target.value)}
+              style={{ width: '100%', minHeight: '44px', padding: '8px 12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-control)', background: '#FFFFFF', marginBottom: '10px' }}
+            >
+              <option value="">เสียงแนะนำอัตโนมัติ (เน้น Natural / Online)</option>
+              {englishVoices.map((voice) => (
+                <option key={voice.voiceURI} value={voice.voiceURI}>
+                  {voice.name} ({voice.lang}){voice.localService === false ? ' · Online' : ''}
+                </option>
+              ))}
+            </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -456,7 +488,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
               </Button>
             </div>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: '6px' }}>
-              ใช้เป็นเสียงอ่านหลักในทุกบทเรียน ทั้งการฟังประโยคและการฝึกพูดตาม (Shadowing)
+              ใช้เสียง English ที่อุปกรณ์มีให้ หากมี Natural, Neural หรือ Online มักฟังเป็นธรรมชาติกว่า; คุณภาพและสำเนียงขึ้นกับ browser และระบบปฏิบัติการ
             </p>
           </div>
 
@@ -494,7 +526,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
             </div>
             <div>
               <h2 style={{ fontSize: 'var(--font-size-lg)', color: 'var(--color-text)', margin: 0 }}>
-                ผู้ช่วย AI Coach (Google Gemini BYOK)
+                ผู้ช่วย AI Coach (OpenRouter BYOK)
               </h2>
               <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: 0 }}>
                 ช่วยตรวจประโยคภาษาอังกฤษ แนะนำสำนวนที่เป็นธรรมชาติ และอธิบายไวยากรณ์สั้นๆ
@@ -521,17 +553,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
           }}
         >
           <div>
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป Google Gemini ผ่าน HTTPS เมื่อใช้ AI ไม่มีเซิร์ฟเวอร์กลาง แต่ JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้ จึงไม่ควรใช้คีย์ส่วนกลางหรือคีย์ที่มีสิทธิ์กว้าง
+            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป OpenRouter ผ่าน HTTPS เมื่อใช้ AI ไม่มีเซิร์ฟเวอร์กลาง แต่ JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้ จึงควรใช้คีย์ที่กำหนดวงเงินต่ำและปิด paid fallback
           </div>
           <div style={{ marginTop: '4px' }}>
             ✨ <strong>ใช้งานฟรี:</strong> คุณสามารถสมัครรับ API Key ฟรีได้จาก{' '}
             <a
-              href="https://aistudio.google.com/app/apikey"
+              href="https://openrouter.ai/keys"
               target="_blank"
               rel="noreferrer"
               style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
             >
-              Google AI Studio <ExternalLink size={12} />
+              OpenRouter Keys <ExternalLink size={12} />
             </a>
           </div>
         </div>
@@ -542,7 +574,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
               htmlFor="gemini-key-input"
               style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
             >
-              Google Gemini API Key:
+              OpenRouter API Key:
             </label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <Key
@@ -555,7 +587,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
                 type={showGeminiKey ? 'text' : 'password'}
                 value={geminiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder="AIzaSy..."
+                placeholder="sk-or-v1-..."
                 style={{
                   width: '100%',
                   padding: '10px 42px 10px 38px',

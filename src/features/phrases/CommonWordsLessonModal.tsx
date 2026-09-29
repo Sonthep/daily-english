@@ -83,7 +83,7 @@ export const CommonWordsLessonModal: React.FC<CommonWordsLessonModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="สร้างบทเรียนจากคำที่เลือก"
-      description="Gemini จะนำคำไปสร้างประโยคและโจทย์ฝึก คุณตรวจเนื้อหาก่อนบันทึกได้"
+      description="OpenRouter จะนำคำไปสร้างประโยคและโจทย์ฝึก คุณตรวจเนื้อหาก่อนบันทึกได้"
       maxWidth="760px"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
@@ -141,12 +141,12 @@ export const CommonWordsLessonModal: React.FC<CommonWordsLessonModalProps> = ({
             </div>
 
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-              คำที่เลือกและบริบทจะถูกส่งไปยัง Google Gemini เพื่อสร้างบทเรียน ตรวจคำแปลและตัวอย่างก่อนนำไปฝึก
+              คำที่เลือกและบริบทจะถูกส่งไปยัง OpenRouter เพื่อสร้างบทเรียน ตรวจคำแปลและตัวอย่างก่อนนำไปฝึก
             </p>
 
             {!hasApiKey ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
-                <span className="muted">ต้องตั้งค่า Gemini API Key ก่อน จึงจะสร้างบทเรียนได้</span>
+                <span className="muted">ต้องตั้งค่า OpenRouter API Key ก่อน จึงจะสร้างบทเรียนได้</span>
                 <Button variant="outline" onClick={onConfigureAI}>ไปตั้งค่า AI</Button>
               </div>
             ) : (

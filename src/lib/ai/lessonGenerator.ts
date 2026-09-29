@@ -1,9 +1,17 @@
 import { Lesson, LearningResource, LessonGenerationOptions, LessonSentence, LessonPrompt, TargetPhrase } from '../../types';
 import { getStoredGeminiApiKey } from './geminiProvider';
+import { getOpenRouterApiUrl } from './openRouterConfig';
 
-const GEMINI_MODEL = 'gemini-3.8-flash';
-const GEMINI_FALLBACK_MODEL = 'gemini-3.6-flash';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const OPENROUTER_MODELS = ['qwen/qwen3.8-27b:free', 'google/gemma-4-26b-a4b-it:free'];
+
+function openRouterHeaders(apiKey: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    'X-Free-Fallback': 'false',
+    'X-Title': 'Daily English',
+  };
+}
 
 /**
  * Heuristic fallback generator when AI API key is missing or network fails.
@@ -187,25 +195,21 @@ ${sampleSentences || resource.notes || resource.title}
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    const res = await fetch(GEMINI_API_URL, {
+    const res = await fetch(getOpenRouterApiUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      headers: openRouterHeaders(apiKey),
       body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: systemInstruction }],
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: promptText }],
-          },
+        model: OPENROUTER_MODELS[0],
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: promptText },
         ],
-        generationConfig: {
-          temperature: 0.3,
-          responseMimeType: 'application/json',
-        },
+        temperature: 0.3,
+        max_tokens: 2500,
+        response_format: { type: 'json_object' },
+        reasoning: { effort: 'none' },
       }),
       signal: controller.signal,
     });
@@ -218,7 +222,7 @@ ${sampleSentences || resource.notes || resource.title}
     }
 
     const data = await res.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const rawText = data?.choices?.[0]?.message?.content || '';
     return parseGeminiLessonResponse(rawText, resource, options);
   } catch (err) {
     console.warn('[AI Lesson Generator] Request failed, falling back to heuristic', err);
@@ -334,7 +338,7 @@ export async function generateLessonFromWords(
   }
 
   const apiKey = getStoredGeminiApiKey();
-  if (!apiKey) throw new Error('กรุณาตั้งค่า Gemini API Key ก่อนสร้างบทเรียน');
+  if (!apiKey) throw new Error('กรุณาตั้งค่า OpenRouter API Key ก่อนสร้างบทเรียน');
 
   const systemInstruction = `You are an expert English curriculum designer for Thai adult learners. Create a practical lesson that teaches the selected vocabulary in context.
 Rules:
@@ -358,75 +362,66 @@ Return only valid JSON matching this schema:
 
   try {
     let response: Response | undefined;
-    let activeModel = GEMINI_MODEL;
-    const modelOptions = [
-      { id: GEMINI_MODEL, thinkingLevel: 'low', attempts: 2 },
-      { id: GEMINI_FALLBACK_MODEL, thinkingLevel: 'minimal', attempts: 1 },
-    ];
-
-    for (const model of modelOptions) {
-      activeModel = model.id;
-      const modelUrl = model.id === GEMINI_MODEL
-        ? GEMINI_API_URL
-        : `https://generativelanguage.googleapis.com/v1beta/models/${model.id}:generateContent`;
-
-      for (let attempt = 0; attempt < model.attempts; attempt++) {
-        response = await fetch(modelUrl, {
+    let activeModel = OPENROUTER_MODELS[0];
+    for (const model of OPENROUTER_MODELS) {
+      activeModel = model;
+      response = await fetch(getOpenRouterApiUrl(), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          headers: openRouterHeaders(apiKey),
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            contents: [{ role: 'user', parts: [{ text: promptText }] }],
-            generationConfig: {
-              temperature: 0.3,
-              responseMimeType: 'application/json',
-              thinkingConfig: { thinkingLevel: model.thinkingLevel },
-            },
+            model,
+            messages: [
+              { role: 'system', content: systemInstruction },
+              { role: 'user', content: promptText },
+            ],
+            temperature: 0.3,
+            max_tokens: 3500,
+            response_format: { type: 'json_object' },
+            reasoning: { effort: 'none' },
           }),
           signal: controller.signal,
         });
-
-        if (response.status !== 503 || attempt === model.attempts - 1) break;
-        const retryAfterSeconds = Number(response.headers?.get('Retry-After'));
-        const backoffMs = 1000 * 2 ** attempt + Math.random() * 300;
-        const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-          ? Math.min(8000, retryAfterSeconds * 1000)
-          : Math.min(8000, backoffMs);
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
-
-      if (response?.status !== 503) break;
+      if (response.ok || response.status === 400 || response.status === 401 || response.status === 402 || response.status === 403) break;
     }
 
     if (!response?.ok) {
       let providerMessage = '';
+      let rateLimitDetail = '';
       try {
         const errorBody = await response?.json();
         providerMessage = typeof errorBody?.error?.message === 'string'
           ? `: ${errorBody.error.message.slice(0, 240)}`
           : '';
+        rateLimitDetail = typeof errorBody?.error?.metadata?.raw === 'string'
+          ? errorBody.error.metadata.raw
+          : '';
       } catch {
         providerMessage = '';
       }
-      if (response?.status === 429) throw new Error('Gemini ใช้งานครบโควตาชั่วคราว กรุณาตรวจสอบโควตาหรือรอสักครู่แล้วลองใหม่');
-      if (response?.status === 401 || response?.status === 403) {
-        throw new Error('Gemini ปฏิเสธ API Key กรุณาตรวจสอบคีย์และสิทธิ์การใช้งานใน Settings');
+      if (response?.status === 429) {
+        if (/shared_pool|rate-limited upstream/i.test(rateLimitDetail)) {
+          throw new Error(`โมเดล ${activeModel} ถูกจำกัดชั่วคราวจากโหลดรวมของผู้ให้บริการ ไม่ใช่เครดิตบัญชีหมด กรุณาลองใหม่อีกสักครู่`);
+        }
+        throw new Error('OpenRouter จำกัดคำขอชั่วคราว (429) ซึ่งไม่ได้ยืนยันว่าเครดิตบัญชีหมด กรุณารอสักครู่แล้วลองใหม่');
       }
-      if (response?.status === 503) {
-        throw new Error(`บริการ Gemini ยังไม่พร้อมใช้งานชั่วคราว (503, ${activeModel}) ลองสร้างอีกครั้งภายหลังได้ คีย์อาจยังใช้ได้ปกติ${providerMessage}`);
+      if (response?.status === 401 || response?.status === 403) {
+        throw new Error('OpenRouter ปฏิเสธ API Key กรุณาตรวจสอบคีย์และสิทธิ์การใช้งานใน Settings');
+      }
+      if (response?.status === 402) {
+        throw new Error('OpenRouter ไม่มีเครดิตหรือเกินวงเงิน และระบบปิดการ fallback ไปแบบเสียเงินแล้ว');
       }
       if (response && response.status >= 500) {
-        throw new Error(`บริการ Gemini ขัดข้องชั่วคราว (${response.status}) กรุณาลองใหม่ภายหลัง${providerMessage}`);
+        throw new Error(`บริการ OpenRouter ขัดข้องชั่วคราว (${response.status}, ${activeModel}) กรุณาลองใหม่ภายหลัง${providerMessage}`);
       }
-      throw new Error(`Gemini สร้างบทเรียนไม่สำเร็จ (${response?.status || 'unknown'}) กรุณาลองใหม่${providerMessage}`);
+      throw new Error(`OpenRouter สร้างบทเรียนไม่สำเร็จ (${response?.status || 'unknown'}) กรุณาลองใหม่${providerMessage}`);
     }
 
     const data = await response.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const rawText = data?.choices?.[0]?.message?.content || '';
     return parseGeminiWordLessonResponse(rawText, words, focus, options.targetDurationMinutes);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('หมดเวลารอคำตอบจาก Gemini กรุณาลองใหม่');
+      throw new Error('หมดเวลารอคำตอบจาก OpenRouter กรุณาลองใหม่');
     }
     throw error;
   } finally {

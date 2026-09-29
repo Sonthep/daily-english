@@ -154,14 +154,14 @@ describe('AI Lesson Generator', () => {
     it('requires a Gemini key instead of returning a fabricated offline lesson', async () => {
       clearStoredGeminiApiKey();
       await expect(generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing'))
-        .rejects.toThrow('กรุณาตั้งค่า Gemini API Key');
+        .rejects.toThrow('กรุณาตั้งค่า OpenRouter API Key');
     });
 
     it('sends the selected words through the API key header and returns a lesson', async () => {
       setStoredGeminiApiKey('test-key');
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(validResponse) }] } }] }),
+        json: async () => ({ choices: [{ message: { content: JSON.stringify(validResponse) } }] }),
       });
       vi.stubGlobal('fetch', fetchMock);
 
@@ -170,39 +170,49 @@ describe('AI Lesson Generator', () => {
       const requestBody = JSON.parse(String(requestOptions.body));
 
       expect(lesson.targetPhrases).toHaveLength(words.length);
-      expect(new Headers(requestOptions.headers).get('x-goog-api-key')).toBe('test-key');
-      expect(requestBody.contents[0].parts[0].text).toContain(JSON.stringify(words));
-      expect(requestBody.generationConfig.thinkingConfig.thinkingLevel).toBe('low');
-      expect(fetchMock.mock.calls[0][0]).toContain('gemini-3.8-flash');
+      expect(new Headers(requestOptions.headers).get('Authorization')).toBe('Bearer test-key');
+      expect(new Headers(requestOptions.headers).get('X-Free-Fallback')).toBe('false');
+      expect(requestBody.messages[1].content).toContain(JSON.stringify(words));
+      expect(requestBody.response_format.type).toBe('json_object');
+      expect(String(fetchMock.mock.calls[0][0])).toMatch(/(?:\/api\/openrouter\/chat\/completions|https:\/\/openrouter\.ai\/api\/v1\/chat\/completions)$/);
     });
 
-    it('falls back to Gemini 3.6 Flash after repeated 3.8 Flash overloads', async () => {
+    it('falls back to Gemma after Qwen is unavailable', async () => {
       setStoredGeminiApiKey('test-key');
-      vi.useFakeTimers();
       const fetchMock = vi.fn()
-        .mockResolvedValueOnce({ ok: false, status: 503, headers: new Headers() })
         .mockResolvedValueOnce({ ok: false, status: 503, headers: new Headers() })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(validResponse) }] } }] }),
+          json: async () => ({ choices: [{ message: { content: JSON.stringify(validResponse) } }] }),
         });
       vi.stubGlobal('fetch', fetchMock);
 
-      const generation = generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
-      let lesson: Awaited<typeof generation> | undefined;
-      const result = generation.then((value) => { lesson = value; });
-      await vi.runAllTimersAsync();
-      await result;
+      const lesson = await generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
 
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-      expect(String(fetchMock.mock.calls[0][0])).toContain('gemini-3.8-flash');
-      expect(String(fetchMock.mock.calls[2][0])).toContain('gemini-3.6-flash');
-      expect(lesson?.targetPhrases).toHaveLength(words.length);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).model).toBe('qwen/qwen3.8-27b:free');
+      expect(JSON.parse(String(fetchMock.mock.calls[1][1].body)).model).toBe('google/gemma-4-26b-a4b-it:free');
+      expect(lesson.targetPhrases).toHaveLength(words.length);
+    });
+
+    it('identifies shared provider rate limits without claiming account quota is exhausted', async () => {
+      setStoredGeminiApiKey('test-key');
+      const rateLimitedResponse = {
+        ok: false,
+        status: 429,
+        headers: new Headers(),
+        json: async () => ({ error: { message: 'Provider returned error', metadata: { raw: 'temporarily rate-limited upstream', limit_source: 'upstream_provider_shared_pool' } } }),
+      };
+      vi.stubGlobal('fetch', vi.fn()
+        .mockResolvedValueOnce(rateLimitedResponse)
+        .mockResolvedValueOnce(rateLimitedResponse));
+
+      await expect(generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing'))
+        .rejects.toThrow('ไม่ใช่เครดิตบัญชีหมด');
     });
 
     it('reports 503 as temporary service unavailability, not an invalid key', async () => {
       setStoredGeminiApiKey('test-key');
-      vi.useFakeTimers();
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: false,
         status: 503,
@@ -211,10 +221,8 @@ describe('AI Lesson Generator', () => {
       }));
 
       const generation = generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
-      const assertion = expect(generation).rejects.toThrow('model is temporarily overloaded');
-      await vi.runAllTimersAsync();
-      await assertion;
-      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3);
+      await expect(generation).rejects.toThrow('OpenRouter');
+      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
     });
   });
 });

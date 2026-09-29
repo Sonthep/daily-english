@@ -6,11 +6,11 @@
 
 ## 1. ปรัชญาและขอบเขตความรับผิดชอบ (Principles & Boundaries)
 
-1. **Phase 1 ใช้ตัวอย่างในเครื่อง หรือ Gemini BYOK ตามที่ผู้ใช้เลือก**:
+1. **Phase 1 ใช้ตัวอย่างในเครื่อง หรือ OpenRouter BYOK ตามที่ผู้ใช้เลือก**:
   - หากไม่มี API Key ระบบใช้ `ExampleTutorProvider` และ Self-check ภายในเครื่อง
-  - Gemini BYOK เป็นทางเลือก: เก็บ API Key ใน `localStorage` ของเบราว์เซอร์และส่งตรงไป Google ผ่าน HTTPS header `x-goog-api-key` โดยไม่มีเซิร์ฟเวอร์ของ Daily English คั่นกลาง
+  - OpenRouter BYOK เป็นทางเลือก: เก็บ API Key ใน `localStorage` ของเบราว์เซอร์และส่งตรงไป OpenRouter ผ่าน HTTPS Bearer header โดยไม่มีเซิร์ฟเวอร์ของ Daily English คั่นกลาง
   - `localStorage` ไม่ใช่ secure vault: JavaScript ที่ทำงานใน origin เดียวกันและส่วนขยายเบราว์เซอร์ที่มีสิทธิ์อาจอ่านคีย์ได้ ห้ามใส่คีย์ส่วนกลางหรือคีย์ที่มีสิทธิ์กว้างใน `VITE_*`, client bundle หรือ repository
-  - เมื่อผู้ใช้เรียกฟีเจอร์ Gemini คำตอบ ข้อความจากแหล่งเรียนรู้ transcript คำศัพท์ที่เลือก และบริบทการฝึกที่เกี่ยวข้องจะถูกส่งไป Google เพื่อประมวลผล ผู้ใช้ควรใช้คีย์ที่จำกัดสิทธิ์/โควตาและลบคีย์ได้จาก Settings
+  - เมื่อผู้ใช้เรียกฟีเจอร์ OpenRouter คำตอบ ข้อความจากแหล่งเรียนรู้ transcript คำศัพท์ที่เลือก และบริบทการฝึกที่เกี่ยวข้องจะถูกส่งไป OpenRouter และ upstream model เพื่อประมวลผล ผู้ใช้ควรใช้คีย์ที่กำหนดวงเงินต่ำ ปิด paid fallback และลบคีย์ได้จาก Settings
 2. **Phase 2 ต้องทำงานผ่าน Secure Backend**:
    - การเชื่อมต่อ AI ใน Phase 2 จะต้องมี Backend Service คั่นกลาง (Backend Proxy) เพื่อ:
      - ปกป้อง Secret API Keys ไม่ให้รั่วไหล

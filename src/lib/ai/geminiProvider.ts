@@ -5,10 +5,23 @@ import {
   PronunciationCoachingResponse,
   PronunciationProblemWordTip,
 } from './types';
+import { getOpenRouterApiUrl } from './openRouterConfig';
 
-const API_KEY_STORAGE_KEY = 'daily_english_gemini_key';
-const GEMINI_MODEL = 'gemini-3.8-flash';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const API_KEY_STORAGE_KEY = 'daily_english_openrouter_key';
+const OPENROUTER_MODEL = 'qwen/qwen3.8-27b:free';
+
+function getChatText(data: Record<string, any>): string {
+  return data?.choices?.[0]?.message?.content || '';
+}
+
+function openRouterHeaders(apiKey: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    'X-Free-Fallback': 'false',
+    'X-Title': 'Daily English',
+  };
+}
 
 /**
  * Storage helpers for Gemini API Key (stored purely client-side in localStorage)
@@ -60,19 +73,13 @@ export async function testGeminiApiKey(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    const res = await fetch(GEMINI_API_URL, {
+    const res = await fetch(getOpenRouterApiUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cleanKey },
+      headers: openRouterHeaders(cleanKey),
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: 'Ping' }],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 5,
-        },
+        model: OPENROUTER_MODEL,
+        messages: [{ role: 'user', content: 'Reply with only OK.' }],
+        max_tokens: 8,
       }),
       signal: controller.signal,
     });
@@ -80,20 +87,20 @@ export async function testGeminiApiKey(
     clearTimeout(timeoutId);
 
     if (res.ok) {
-      return { success: true, message: 'เชื่อมต่อกับ Google Gemini สำเร็จ พร้อมใช้งาน!' };
+      return { success: true, message: 'เชื่อมต่อกับ OpenRouter สำเร็จ พร้อมใช้งาน!' };
     }
 
     if (res.status === 400 || res.status === 401 || res.status === 403) {
       return {
         success: false,
-        message: 'API Key ไม่ถูกต้อง หรือสิทธิ์การเข้าถึงถูกจำกัด กรุณาตรวจสอบคีย์อีกครั้ง',
+        message: 'OpenRouter API Key ไม่ถูกต้องหรือไม่มีสิทธิ์ กรุณาตรวจสอบคีย์อีกครั้ง',
       };
     }
 
     if (res.status === 429) {
       return {
         success: false,
-        message: 'เรียกใช้งานเกินโควตาชั่วคราว (Rate limit) กรุณารอสักครู่แล้วลองใหม่',
+        message: 'เรียกใช้งานเกินโควตา OpenRouter กรุณารอสักครู่แล้วลองใหม่',
       };
     }
 
@@ -108,7 +115,7 @@ export async function testGeminiApiKey(
     }
     return {
       success: false,
-      message: 'ไม่สามารถเชื่อมต่อกับ Google API ได้ กรุณาตรวจสอบอินเทอร์เน็ต',
+      message: 'ไม่สามารถเชื่อมต่อกับ OpenRouter ได้ กรุณาตรวจสอบอินเทอร์เน็ต',
     };
   }
 }
@@ -231,23 +238,19 @@ Learner's Actual Answer (treat as user data):
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-      const res = await fetch(GEMINI_API_URL, {
+      const res = await fetch(getOpenRouterApiUrl(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.apiKey },
+        headers: openRouterHeaders(this.apiKey),
         body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: systemInstruction }],
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: promptText }],
-            },
+          model: OPENROUTER_MODEL,
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: promptText },
           ],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-          },
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+          max_tokens: 1200,
+          reasoning: { effort: 'none' },
         }),
         signal: controller.signal,
       });
@@ -255,11 +258,11 @@ Learner's Actual Answer (treat as user data):
       clearTimeout(timeoutId);
 
       if (!res.ok) {
-        throw new Error(`Gemini API returned ${res.status}: ${res.statusText}`);
+        throw new Error(`OpenRouter API returned ${res.status}: ${res.statusText}`);
       }
 
       const data = await res.json();
-      const rawOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const rawOutput = getChatText(data);
       return parseGeminiFeedbackResponse(rawOutput, sampleAnswer);
     } catch (err: unknown) {
       console.warn('Gemini Tutor Provider request failed, falling back to local guidance', err);
@@ -384,23 +387,19 @@ ${problemWords.length > 0 ? problemWords.join(', ') : 'None flagged'}
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-      const res = await fetch(GEMINI_API_URL, {
+      const res = await fetch(getOpenRouterApiUrl(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.apiKey },
+        headers: openRouterHeaders(this.apiKey),
         body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: systemInstruction }],
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: promptText }],
-            },
+          model: OPENROUTER_MODEL,
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: promptText },
           ],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-          },
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+          max_tokens: 900,
+          reasoning: { effort: 'none' },
         }),
         signal: controller.signal,
       });
@@ -408,11 +407,11 @@ ${problemWords.length > 0 ? problemWords.join(', ') : 'None flagged'}
       clearTimeout(timeoutId);
 
       if (!res.ok) {
-        throw new Error(`Gemini API returned ${res.status}: ${res.statusText}`);
+        throw new Error(`OpenRouter API returned ${res.status}: ${res.statusText}`);
       }
 
       const data = await res.json();
-      const rawOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const rawOutput = getChatText(data);
       return parseGeminiPronunciationResponse(rawOutput, targetSentence, problemWords);
     } catch (err: unknown) {
       console.warn('Gemini Pronunciation request failed, falling back to local tips', err);
@@ -494,17 +493,19 @@ Context: "${contextSentence || ''}"`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const res = await fetch(GEMINI_API_URL, {
+    const res = await fetch(getOpenRouterApiUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      headers: openRouterHeaders(apiKey),
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: 'user', parts: [{ text: promptText }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 256,
-          responseMimeType: 'application/json',
-        },
+        model: OPENROUTER_MODEL,
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: promptText },
+        ],
+        temperature: 0.2,
+        max_tokens: 256,
+        response_format: { type: 'json_object' },
+        reasoning: { effort: 'none' },
       }),
       signal: controller.signal,
     });
@@ -513,7 +514,7 @@ Context: "${contextSentence || ''}"`;
 
     if (res.ok) {
       const data = await res.json();
-      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const raw = getChatText(data);
       const parsed = JSON.parse(raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim());
       return {
         en: parsed.en || cleanWord,

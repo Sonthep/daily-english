@@ -41,9 +41,9 @@
 - [x] **Flashcard Review Session**: หน้าต่างทบทวนคำศัพท์ Think-before-reveal พร้อมปุ่มประเมินผล Spaced Repetition (Again / Remembered)
 - [x] **Custom Learning Resources (`/resources`)**: แนบวิดีโอ YouTube (เล่นในตัว), พอดแคสต์, เพลง, ซีนหนัง พร้อมโหมด Shadowing และปุ่ม 1-Click Save to My Phrases
 - [x] **Bulk Text & Subtitle Parser**: นำเข้าข้อความชุดใหญ่, ซับไตเติล SRT/VTT, เวลา และประโยคคู่สองภาษาในคลิกเดียว
-- [x] **AI Coach Mode (BYOK: Google Gemini)**: ระบบตรวจความถูกต้องและแนะนำสำนวนภาษาอังกฤษที่เป็นธรรมชาติ พร้อมคำอธิบายภาษาไทยและเสียงอ่าน TTS
+- [x] **AI Coach Mode (BYOK: OpenRouter)**: ระบบตรวจความถูกต้องและแนะนำสำนวนภาษาอังกฤษที่เป็นธรรมชาติ พร้อมคำอธิบายภาษาไทยและเสียงอ่าน TTS
 - [x] **Progress Screen (`/progress`)**: สถิติจริง (เซสชัน, นาทีจริง, 7 วัน, ประวัติบทเรียน, Empty State)
-- [x] **Settings Screen (`/settings`)**: โปรไฟล์, จัดการ Gemini API Key, Export JSON, Import JSON (Validation + Modal), Reset Data (Modal confirm)
+- [x] **Settings Screen (`/settings`)**: โปรไฟล์, จัดการ OpenRouter API Key, Export JSON, Import JSON (Validation + Modal), Reset Data (Modal confirm)
 
 ### 5. Testing & Polish
 - [x] เขียน Unit Tests ครอบคลุม 11 Test Suites (52 tests ผ่าน 100%):
@@ -54,9 +54,9 @@
   - Seed lessons integrity
   - Media & YouTube ID utils
   - Bulk text & Subtitle parser
-  - AI Coach Gemini Provider & fallback parser
+  - AI Coach OpenRouter Provider & fallback parser
   - Pronunciation Matcher (Offline Levenshtein & Word Alignment)
-  - Pronunciation AI Coach (Gemini BYOK & Offline Heuristics)
+  - Pronunciation AI Coach (OpenRouter BYOK & Offline Heuristics)
   - Date & Timezone utils
 - [x] ทดสอบความเข้ากันได้ของ Responsive Layout ที่ 375px, 768px, และ 1440px
 - [x] ตรวจสอบ Accessibility (Focus ring, Touch target >= 44px, Contrast, Reduced motion)
@@ -77,9 +77,9 @@
   - Seed lessons integrity
   - Media & YouTube ID utils
   - Bulk text & Subtitle parser
-  - AI Coach Gemini Provider & fallback parser
+  - AI Coach OpenRouter Provider & fallback parser
   - Pronunciation Matcher (Offline Levenshtein & Word Alignment)
-  - Pronunciation AI Coach (Gemini BYOK & Offline Heuristics)
+  - Pronunciation AI Coach (OpenRouter BYOK & Offline Heuristics)
   - Date & Timezone utils
   - UI Layout and responsive design
   - AI Lesson Generator from Resources
@@ -101,7 +101,7 @@
 ## Reliability and release checks — 2026-09-29
 
 - [x] ตรวจสอบ import schema v1/v2 และข้อมูลทุก record ก่อนเปิด transaction พร้อม regression tests
-- [x] ย้าย Gemini API Key จาก URL ไป HTTPS header และยกเลิกการอ่านคีย์จาก `VITE_*`
+- [x] ย้าย OpenRouter API Key จาก URL ไป HTTPS Bearer header และยกเลิกการอ่านคีย์จาก `VITE_*`
 - [x] ปรับเอกสาร BYOK ให้ระบุข้อจำกัดของ LocalStorage และอัปเดตคำเตือนใน UI
 - [x] เปลี่ยนโปรไฟล์เริ่มต้นเป็นกลาง และเปิดให้แก้เป้าหมายกับระดับความมั่นใจใน Settings
 - [x] เพิ่ม Playwright smoke tests สำหรับ first launch, profile settings และการคงค่าเมื่อ refresh
@@ -116,10 +116,10 @@
 
 ## Vocabulary-to-lesson practice — 2026-09-29
 
-- [x] เลือกคำ 3–5 คำและบริบทเพื่อสร้างบทเรียนผ่าน Gemini BYOK
+- [x] เลือกคำ 3–5 คำและบริบทเพื่อสร้างบทเรียนผ่าน OpenRouter BYOK
 - [x] ตรวจผลลัพธ์ให้มีทุกคำเป้าหมาย พร้อม preview คำแปล/ประโยค/โจทย์ก่อนบันทึก
 - [x] ปฏิเสธ fallback เมื่อไม่มีคีย์หรือผล AI ไม่ครบ และเพิ่มตัวเลือกบันทึกหรือเริ่มฝึกทันที
-- [x] ลด latency ด้วย Gemini 3.8 Flash, thinking level low, deadline 60 วินาที และ fallback จำกัดไป 3.6 Flash เมื่อเจอ 503
+- [x] ลด latency ด้วย OpenRouter free Qwen/DeepSeek routing, no-paid-fallback และ retry แบบจำกัด
 
 ---
 
