@@ -5,6 +5,7 @@ import {
   clearStoredGeminiApiKey,
   parseGeminiFeedbackResponse,
   GeminiTutorProvider,
+  testGeminiApiKey,
 } from '../src/lib/ai/geminiProvider';
 import {
   getActiveTutorProvider,
@@ -22,6 +23,25 @@ describe('AI Coach & Gemini BYOK Provider', () => {
     it('does not read API keys from frontend environment variables', () => {
       vi.stubEnv('VITE_OPENROUTER_API_KEY', 'client-bundled-key');
       expect(getStoredGeminiApiKey()).toBeNull();
+    });
+
+    it('reports shared free-provider rate limiting without claiming the account quota is exhausted', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: async () => ({
+          error: {
+            message: 'Provider returned error',
+            metadata: { raw: 'temporarily rate-limited upstream', limit_source: 'upstream_provider_shared_pool' },
+          },
+        }),
+      }));
+
+      const result = await testGeminiApiKey('test-key');
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('ผู้ให้บริการ');
+      expect(result.message).toContain('ไม่ได้หมายความว่าเครดิตบัญชีหมด');
     });
 
     it('stores, retrieves, and clears API key in localStorage', () => {

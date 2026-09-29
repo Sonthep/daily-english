@@ -363,6 +363,8 @@ Return only valid JSON matching this schema:
   try {
     let response: Response | undefined;
     let activeModel = OPENROUTER_MODELS[0];
+    let generatedLesson: Lesson | undefined;
+    let generationError: unknown;
     for (const model of OPENROUTER_MODELS) {
       activeModel = model;
       response = await fetch(getOpenRouterApiUrl(), {
@@ -381,8 +383,22 @@ Return only valid JSON matching this schema:
           }),
           signal: controller.signal,
         });
-      if (response.ok || response.status === 400 || response.status === 401 || response.status === 402 || response.status === 403) break;
+      if (response.ok) {
+        try {
+          const data = await response.json();
+          const rawText = data?.choices?.[0]?.message?.content || '';
+          generatedLesson = parseGeminiWordLessonResponse(rawText, words, focus, options.targetDurationMinutes);
+          break;
+        } catch (error) {
+          generationError = error;
+          continue;
+        }
+      }
+      if (response.status === 400 || response.status === 401 || response.status === 402 || response.status === 403) break;
     }
+
+    if (generatedLesson) return generatedLesson;
+    if (response?.ok && generationError instanceof Error) throw generationError;
 
     if (!response?.ok) {
       let providerMessage = '';
@@ -416,9 +432,7 @@ Return only valid JSON matching this schema:
       throw new Error(`OpenRouter สร้างบทเรียนไม่สำเร็จ (${response?.status || 'unknown'}) กรุณาลองใหม่${providerMessage}`);
     }
 
-    const data = await response.json();
-    const rawText = data?.choices?.[0]?.message?.content || '';
-    return parseGeminiWordLessonResponse(rawText, words, focus, options.targetDurationMinutes);
+    throw new Error('OpenRouter ไม่สามารถสร้างบทเรียนที่สมบูรณ์ได้ กรุณาลองอีกครั้ง');
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('หมดเวลารอคำตอบจาก OpenRouter กรุณาลองใหม่');

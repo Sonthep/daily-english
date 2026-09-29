@@ -195,6 +195,30 @@ describe('AI Lesson Generator', () => {
       expect(lesson.targetPhrases).toHaveLength(words.length);
     });
 
+    it('retries with Gemma when Qwen returns an incomplete lesson', async () => {
+      setStoredGeminiApiKey('test-key');
+      const incompleteResponse = {
+        ...validResponse,
+        sentences: validResponse.sentences.map((sentence, index) => index === 0 ? { ...sentence, th: '' } : sentence),
+      };
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ choices: [{ message: { content: JSON.stringify(incompleteResponse) } }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ choices: [{ message: { content: JSON.stringify(validResponse) } }] }),
+        });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const lesson = await generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(String(fetchMock.mock.calls[1][1].body)).model).toBe('google/gemma-4-26b-a4b-it:free');
+      expect(lesson.targetPhrases).toHaveLength(words.length);
+    });
+
     it('identifies shared provider rate limits without claiming account quota is exhausted', async () => {
       setStoredGeminiApiKey('test-key');
       const rateLimitedResponse = {

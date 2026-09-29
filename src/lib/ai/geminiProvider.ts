@@ -98,9 +98,24 @@ export async function testGeminiApiKey(
     }
 
     if (res.status === 429) {
+      let errorDetails = '';
+      try {
+        const errorBody = await res.json();
+        errorDetails = [errorBody?.error?.message, errorBody?.error?.metadata?.raw]
+          .filter((value): value is string => typeof value === 'string')
+          .join(' ');
+      } catch {
+        errorDetails = '';
+      }
+      if (/shared_pool|rate-limited upstream/i.test(errorDetails)) {
+        return {
+          success: false,
+          message: 'โมเดลฟรีกำลังถูกจำกัดชั่วคราวจากผู้ให้บริการ ไม่ได้หมายความว่าเครดิตบัญชีหมด กรุณาลองใหม่ภายหลัง',
+        };
+      }
       return {
         success: false,
-        message: 'เรียกใช้งานเกินโควตา OpenRouter กรุณารอสักครู่แล้วลองใหม่',
+        message: 'OpenRouter จำกัดคำขอชั่วคราว (429) ซึ่งไม่ได้ยืนยันว่าเครดิตบัญชีหมด กรุณารอสักครู่แล้วลองใหม่',
       };
     }
 
