@@ -365,13 +365,11 @@ export class ReviewRepository implements IReviewRepository {
 export class ResourceRepository implements IResourceRepository {
   async getAllResources(): Promise<LearningResource[]> {
     const db = await getDatabase();
-    await this.seedResourcesIfEmpty();
     return db.getAll('resources');
   }
 
   async getResourceById(id: string): Promise<LearningResource | null> {
     const db = await getDatabase();
-    await this.seedResourcesIfEmpty();
     const res = await db.get('resources', id);
     return res || null;
   }

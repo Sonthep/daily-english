@@ -121,6 +121,11 @@
 - [x] ปฏิเสธ fallback เมื่อไม่มีคีย์หรือผล AI ไม่ครบ และเพิ่มตัวเลือกบันทึกหรือเริ่มฝึกทันที
 - [x] ลด latency ด้วย OpenRouter free Qwen/DeepSeek routing, no-paid-fallback และ retry แบบจำกัด
 
+## Resource deletion reliability — 2026-10-09
+
+- [x] Seed Resources only when the IndexedDB resources store is first created, so deleting the last Resource persists across reads and reloads
+- [x] Add a Playwright regression test for deleting the final Resource
+
 ---
 
 ## 🔮 Future Roadmap (สิ่งที่พัฒนาต่อได้ในอนาคต)

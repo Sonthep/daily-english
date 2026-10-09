@@ -58,3 +58,16 @@ test('a fresh profile does not impersonate the example persona', async ({ page }
   await expect(page.getByText('ปุ๊ก', { exact: true })).toHaveCount(0);
   await expect(page.getByText('ผู้เรียน', { exact: true })).toBeVisible();
 });
+
+test('deleting the last resource stays deleted after refresh', async ({ page }) => {
+  const seededTitle = 'Jack Ma: Why Most People Never Speak English Fluently';
+
+  await page.goto('/#/resources');
+  await expect(page.getByRole('heading', { name: seededTitle })).toBeVisible();
+  await page.getByRole('button', { name: 'ลบ Resource' }).click();
+  await page.getByRole('button', { name: 'ยืนยันลบ' }).click();
+
+  await expect(page.getByRole('heading', { name: seededTitle })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: seededTitle })).toHaveCount(0);
+});

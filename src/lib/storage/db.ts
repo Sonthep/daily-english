@@ -7,6 +7,7 @@ import {
   ReviewEvent,
   LearningResource,
 } from '../../types';
+import { SEED_RESOURCES } from '../../data/seedResources';
 
 export const DB_NAME = 'daily_english_db';
 export const DB_VERSION = 2;
@@ -100,6 +101,9 @@ export function getDatabase(): Promise<IDBPDatabase<DailyEnglishDBSchema>> {
         if (!db.objectStoreNames.contains('resources')) {
           const resourceStore = db.createObjectStore('resources', { keyPath: 'id' });
           resourceStore.createIndex('by-type', 'type');
+          for (const resource of SEED_RESOURCES) {
+            resourceStore.put(resource);
+          }
         }
       },
     });
