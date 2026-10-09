@@ -90,6 +90,7 @@ export interface Phrase {
   th: string;                         // คำแปลภาษาไทย
   example: string;                    // ประโยคตัวอย่าง
   category: string;                   // หมวดหมู่ เช่น 'Design & Marketing'
+  tags?: string[];                    // Grammar tags ที่ระบบแนะนำในเครื่องหรือผู้ใช้กำหนด
   sourceLessonId: string | null;      // ID บทเรียนต้นทาง (null ถ้าผู้ใช้เพิ่มเอง)
   reviewStage: number;                // 0, 1, 2, 3, 4, 5+
   dueAt: string;                      // ISO 8601 UTC กำหนดวันทบทวนรอบถัดไป
@@ -98,7 +99,24 @@ export interface Phrase {
 }
 ```
 
-### 1.5 ReviewEvent (`review_events` store)
+### 1.5 Resource (`resources` store)
+ประโยคที่ดึงจาก captions อาจมีช่วงเวลาโดยประมาณของแต่ละคำเพื่อไฮไลต์ตามเสียงในวิดีโอ; Resource เก่าที่ไม่มี `wordTimings` ยังใช้ได้ตามปกติ:
+```typescript
+export interface ResourceWordTiming {
+  startSeconds: number;
+  endSeconds: number;
+}
+
+export interface ResourceSentence {
+  id: string;
+  en: string;
+  th: string;
+  timestamp?: string;
+  wordTimings?: ResourceWordTiming[];
+}
+```
+
+### 1.6 ReviewEvent (`review_events` store)
 ประวัติการกดทบทวนคำศัพท์แต่ละครั้ง:
 ```typescript
 export interface ReviewEvent {

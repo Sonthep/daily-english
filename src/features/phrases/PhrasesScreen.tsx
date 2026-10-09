@@ -9,6 +9,7 @@ import { AppRoute, Lesson, Phrase } from '../../types';
 import { phraseRepo } from '../../lib/storage/repositories';
 import { speechService } from '../../lib/audio/speech';
 import { createNewPhrase } from '../../lib/review/scheduler';
+import { suggestPhraseGrammar } from '../../lib/phrases/organization';
 import { PhraseReviewModal } from './PhraseReviewModal';
 import { CommonWordBank } from './CommonWordBank';
 import { CommonWordsLessonModal } from './CommonWordsLessonModal';
@@ -44,7 +45,9 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
   const [formEn, setFormEn] = useState('');
   const [formTh, setFormTh] = useState('');
   const [formExample, setFormExample] = useState('');
-  const [formCategory, setFormCategory] = useState('General');
+  const [formCategory, setFormCategory] = useState('Other');
+  const [formTags, setFormTags] = useState('');
+  const [formOrganizationEdited, setFormOrganizationEdited] = useState(false);
 
   // Delete & Undo State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -73,7 +76,10 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
     setFormEn(word);
     setFormTh('');
     setFormExample('');
-    setFormCategory(word ? 'Common 3000' : 'General');
+    const suggestion = suggestPhraseGrammar(word);
+    setFormCategory(suggestion.category);
+    setFormTags(suggestion.tags.join(', '));
+    setFormOrganizationEdited(false);
     setIsModalOpen(true);
   };
 
@@ -83,6 +89,8 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
     setFormTh(phrase.th);
     setFormExample(phrase.example);
     setFormCategory(phrase.category);
+    setFormTags((phrase.tags || []).join(', '));
+    setFormOrganizationEdited(true);
     setIsModalOpen(true);
   };
 
@@ -97,6 +105,7 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
         th: formTh.trim(),
         example: formExample.trim(),
         category: formCategory,
+        tags: [...new Set(formTags.split(',').map((tag) => tag.trim()).filter(Boolean))],
         updatedAt: new Date().toISOString(),
       };
       await phraseRepo.savePhrase(updated);
@@ -108,6 +117,7 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
         formCategory,
         null
       );
+      created.tags = [...new Set(formTags.split(',').map((tag) => tag.trim()).filter(Boolean))];
       await phraseRepo.savePhrase(created);
     }
 
@@ -150,7 +160,8 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
       query === '' ||
       p.en.toLowerCase().includes(query) ||
       p.th.toLowerCase().includes(query) ||
-      p.example.toLowerCase().includes(query);
+      p.example.toLowerCase().includes(query) ||
+      (p.tags || []).some((tag) => tag.toLowerCase().includes(query));
 
     if (!matchesSearch) return false;
 
@@ -417,6 +428,12 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
                     </Button>
                   </div>
 
+                  {(p.tags || []).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', marginTop: 'var(--space-xs)' }}>
+                      {p.tags?.map((tag) => <Badge key={tag} variant="neutral">{tag}</Badge>)}
+                    </div>
+                  )}
+
                   <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                     {p.th}
                   </div>
@@ -500,7 +517,15 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
               type="text"
               required
               value={formEn}
-              onChange={(e) => setFormEn(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormEn(value);
+                if (!formOrganizationEdited) {
+                  const suggestion = suggestPhraseGrammar(value, formExample);
+                  setFormCategory(suggestion.category);
+                  setFormTags(suggestion.tags.join(', '));
+                }
+              }}
               placeholder="เช่น Could you make it bigger?"
               style={{
                 width: '100%',
@@ -547,7 +572,15 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
               id="phrase-example"
               rows={2}
               value={formExample}
-              onChange={(e) => setFormExample(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormExample(value);
+                if (!formOrganizationEdited) {
+                  const suggestion = suggestPhraseGrammar(formEn, value);
+                  setFormCategory(suggestion.category);
+                  setFormTags(suggestion.tags.join(', '));
+                }
+              }}
               placeholder="เช่น Could you make the logo a little bigger on this slide?"
               style={{
                 width: '100%',
@@ -565,12 +598,15 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
               htmlFor="phrase-cat"
               style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}
             >
-              หมวดหมู่
+              ชนิดคำ (POS)
             </label>
             <select
               id="phrase-cat"
               value={formCategory}
-              onChange={(e) => setFormCategory(e.target.value)}
+              onChange={(e) => {
+                setFormOrganizationEdited(true);
+                setFormCategory(e.target.value);
+              }}
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -580,12 +616,37 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
                 backgroundColor: '#FFFFFF',
               }}
             >
-              <option value="General">ทั่วไป (General)</option>
-              <option value="Design & Marketing">งานดีไซน์ & การตลาด</option>
-              <option value="Daily Life">ชีวิตประจำวัน</option>
-              <option value="Gaming">เกม & ทีมเวิร์ก</option>
-              <option value="Common 3000">คำศัพท์ที่พบบ่อย</option>
+              {!['Other', 'Noun', 'Verb', 'Adjective', 'Adverb', 'Pronoun', 'Preposition', 'Conjunction', 'Determiner', 'Interjection'].includes(formCategory) && (
+                <option value={formCategory}>{formCategory} (หมวดเดิม)</option>
+              )}
+              <option value="Other">อื่น ๆ</option>
+              <option value="Noun">Noun (คำนาม)</option>
+              <option value="Verb">Verb (คำกริยา)</option>
+              <option value="Adjective">Adjective (คำคุณศัพท์)</option>
+              <option value="Adverb">Adverb (คำกริยาวิเศษณ์)</option>
+              <option value="Pronoun">Pronoun (คำสรรพนาม)</option>
+              <option value="Preposition">Preposition (คำบุพบท)</option>
+              <option value="Conjunction">Conjunction (คำสันธาน)</option>
+              <option value="Determiner">Determiner</option>
+              <option value="Interjection">Interjection (คำอุทาน)</option>
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="phrase-tags" style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
+              Tags ทางไวยากรณ์ (คั่นด้วย comma)
+            </label>
+            <input
+              id="phrase-tags"
+              type="text"
+              value={formTags}
+              onChange={(e) => {
+                setFormOrganizationEdited(true);
+                setFormTags(e.target.value);
+              }}
+              placeholder="เช่น singular, subject, present tense"
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)' }}
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: 'var(--space-md)' }}>

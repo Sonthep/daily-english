@@ -126,6 +126,7 @@ const isPhrase = (value: unknown): boolean =>
   isNonEmptyString(value.th) &&
   typeof value.example === 'string' &&
   isNonEmptyString(value.category) &&
+  (value.tags === undefined || (Array.isArray(value.tags) && value.tags.every(isNonEmptyString))) &&
   (value.sourceLessonId === null || typeof value.sourceLessonId === 'string') &&
   Number.isInteger(value.reviewStage) &&
   Number(value.reviewStage) >= 0 &&
@@ -159,7 +160,14 @@ const isResource = (value: unknown): boolean =>
       isNonEmptyString(sentence.id) &&
       isNonEmptyString(sentence.en) &&
       typeof sentence.th === 'string' &&
-      (sentence.timestamp === undefined || typeof sentence.timestamp === 'string')
+      (sentence.timestamp === undefined || typeof sentence.timestamp === 'string') &&
+      (sentence.wordTimings === undefined ||
+        (Array.isArray(sentence.wordTimings) && sentence.wordTimings.every((timing) =>
+          isRecord(timing) &&
+          typeof timing.startSeconds === 'number' && Number.isFinite(timing.startSeconds) &&
+          typeof timing.endSeconds === 'number' && Number.isFinite(timing.endSeconds) &&
+          timing.endSeconds >= timing.startSeconds
+        )))
   ) &&
   Array.isArray(value.targetPhrases) &&
   value.targetPhrases.every(isTargetPhrase) &&

@@ -83,6 +83,7 @@ export interface Phrase {
   th: string;
   example: string;
   category: string;
+  tags?: string[];
   sourceLessonId: string | null;
   reviewStage: number; // 0, 1, 2, 3, 4, 5+
   dueAt: string; // ISO 8601 UTC
@@ -99,11 +100,17 @@ export interface ReviewEvent {
   nextStage: number;
 }
 
+export interface ResourceWordTiming {
+  startSeconds: number;
+  endSeconds: number;
+}
+
 export interface ResourceSentence {
   id: string;
   en: string;
   th: string;
   timestamp?: string; // e.g. "01:15"
+  wordTimings?: ResourceWordTiming[];
 }
 
 export interface LearningResource {

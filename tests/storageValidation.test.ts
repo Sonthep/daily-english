@@ -137,6 +137,29 @@ describe('Storage & Import Validation', () => {
     expect(res.valid).toBe(true);
   });
 
+  it('accepts optional tags on imported phrases while retaining old phrase compatibility', () => {
+    const basePhrase = {
+      id: 'phrase-test',
+      en: 'perspective',
+      th: 'มุมมอง',
+      example: 'Change your perspective.',
+      category: 'Learning & Growth',
+      sourceLessonId: null,
+      reviewStage: 0,
+      dueAt: '2026-09-14T00:00:00.000Z',
+      createdAt: '2026-09-14T00:00:00.000Z',
+      updatedAt: '2026-09-14T00:00:00.000Z',
+    };
+    const withTags = {
+      ...makeValidExport(),
+      phrases: [{ ...basePhrase, tags: ['learning', 'mindset'] }],
+    };
+    const withoutTags = { ...makeValidExport(), phrases: [basePhrase] };
+
+    expect(service.validateImportData(JSON.stringify(withTags)).valid).toBe(true);
+    expect(service.validateImportData(JSON.stringify(withoutTags)).valid).toBe(true);
+  });
+
   it('accepts locally generated custom lessons in v2 exports', () => {
     const payload = {
       ...makeValidExport(),

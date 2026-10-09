@@ -5,10 +5,13 @@ import { Phrase } from '../../types';
 import { phraseRepo } from '../../lib/storage/repositories';
 import { createNewPhrase } from '../../lib/review/scheduler';
 import { speechService } from '../../lib/audio/speech';
+import { translateEnglishToThai } from '../../lib/translations/myMemory';
+import { suggestPhraseGrammar } from '../../lib/phrases/organization';
 import {
   Volume2,
   Check,
   Bookmark,
+  Languages,
 } from 'lucide-react';
 
 export interface SaveWordModalProps {
@@ -28,7 +31,7 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
   initialExample = '',
   contextSentence = '',
   sourceResourceId = null,
-  defaultCategory = 'Vocabulary',
+  defaultCategory = 'Other',
   onClose,
   onSaved,
 }) => {
@@ -37,8 +40,12 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
   const [th, setTh] = useState('');
   const [example, setExample] = useState(sentenceContext);
   const [category, setCategory] = useState(defaultCategory);
+  const [tagsText, setTagsText] = useState('');
+  const [organizationManuallyEdited, setOrganizationManuallyEdited] = useState(false);
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
 
   useEffect(() => {
@@ -48,12 +55,34 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
       setWord(clean);
       setExample(defaultEx);
       setCategory(defaultCategory || 'Vocabulary');
+      setTagsText('');
+      setOrganizationManuallyEdited(false);
       setTh('');
+      setTranslationError(null);
       setIsSavedSuccess(false);
     } else {
       speechService.stop();
     }
   }, [isOpen, initialWord, initialExample, contextSentence, defaultCategory]);
+
+  useEffect(() => {
+    if (!isOpen || organizationManuallyEdited) return;
+    const suggestion = suggestPhraseGrammar(word, example, defaultCategory);
+    setCategory(suggestion.category);
+    setTagsText(suggestion.tags.join(', '));
+  }, [isOpen, word, example, defaultCategory, organizationManuallyEdited]);
+
+  const handleTranslate = async () => {
+    setIsTranslating(true);
+    setTranslationError(null);
+    try {
+      setTh(await translateEnglishToThai(word));
+    } catch (error) {
+      setTranslationError(error instanceof Error ? error.message : 'แปลไม่สำเร็จ กรุณาลองอีกครั้ง');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const handlePlayWordSpeech = () => {
     if (!word.trim()) return;
@@ -80,6 +109,7 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
       category.trim() || 'Vocabulary',
       sourceResourceId || null
     );
+    newPhrase.tags = [...new Set(tagsText.split(',').map((tag) => tag.trim()).filter(Boolean))];
 
     await phraseRepo.savePhrase(newPhrase);
     setIsSavedSuccess(true);
@@ -135,9 +165,20 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
 
         {/* Thai Translation */}
         <div>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text)', marginBottom: '4px' }}>
-            คำแปลภาษาไทย (Thai Meaning) *
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text)' }}>
+              คำแปลภาษาไทย (Thai Meaning) *
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleTranslate}
+              disabled={!word.trim() || isTranslating}
+            >
+              <Languages size={14} /> {isTranslating ? 'กำลังแปล...' : 'แปลจาก MyMemory'}
+            </Button>
+          </div>
           <input
             type="text"
             required
@@ -152,6 +193,14 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
               fontSize: '14px',
             }}
           />
+          {translationError && (
+            <p role="alert" style={{ margin: '6px 0 0', color: 'var(--color-error)', fontSize: 'var(--font-size-xs)' }}>
+              {translationError}
+            </p>
+          )}
+          <p style={{ margin: '6px 0 0', color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)', lineHeight: 1.5 }}>
+            เมื่อกดแปล คำหรือวลีนี้จะถูกส่งไป MyMemory; ผู้ให้บริการระบุว่าอาจเก็บข้อความที่ส่งไว้ และจำกัดการใช้ฟรี 5,000 ตัวอักษรต่อวัน
+          </p>
         </div>
 
         {/* Context Example Sentence */}
@@ -180,16 +229,42 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
           />
         </div>
 
-        {/* Category tag */}
+        {/* Automatic category and editable tags */}
         <div>
           <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text)', marginBottom: '4px' }}>
-            หมวดหมู่ / แท็ก (Category)
+            ชนิดคำ (POS)
           </label>
           <input
             type="text"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="เช่น Speaking, Inspiration, General..."
+            onChange={(e) => {
+              setOrganizationManuallyEdited(true);
+              setCategory(e.target.value);
+            }}
+            placeholder="เช่น Noun, Verb, Adjective..."
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-control)',
+              border: '1px solid var(--color-border)',
+              fontSize: '13px',
+            }}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="flashcard-tags" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text)', marginBottom: '4px' }}>
+            Tags ทางไวยากรณ์ (คั่นด้วย comma)
+          </label>
+          <input
+            id="flashcard-tags"
+            type="text"
+            value={tagsText}
+            onChange={(e) => {
+              setOrganizationManuallyEdited(true);
+              setTagsText(e.target.value);
+            }}
+            placeholder="เช่น singular, subject, present tense"
             style={{
               width: '100%',
               padding: '8px 12px',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -13,7 +13,8 @@ import { evaluatePronunciation, PronunciationScoreResult } from '../../lib/audio
 import { PronunciationFeedbackCard } from '../../components/audio/PronunciationFeedbackCard';
 import { createNewPhrase } from '../../lib/review/scheduler';
 import { formatDurationThai } from '../../lib/review/dateUtils';
-import { getResourceTypeLabel, timestampToSeconds } from '../../lib/resources/mediaUtils';
+import { findActiveWordIndex, getResourceTypeLabel, timestampToSeconds } from '../../lib/resources/mediaUtils';
+import { loadYouTubeIframeApi, YouTubePlayerInstance } from '../../lib/resources/youtubePlayer';
 import { getActiveTutorProvider } from '../../lib/ai/provider';
 import { TextFeedbackResponse } from '../../lib/ai/types';
 import { AICoachFeedbackCard } from '../../components/ai/AICoachFeedbackCard';
@@ -50,9 +51,12 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
 }) => {
   const [activeSeconds, setActiveSeconds] = useState(0);
   const [playingSentenceId, setPlayingSentenceId] = useState<string | null>(null);
+  const [activeTranscriptWord, setActiveTranscriptWord] = useState<{ sentenceId: string; wordIndex: number } | null>(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isTranscribeModalOpen, setIsTranscribeModalOpen] = useState(false);
   const [sentences, setSentences] = useState<ResourceSentence[]>(resource.sentences || []);
+  const sentencesRef = useRef(sentences);
+  const youtubePlayerRef = useRef<YouTubePlayerInstance | null>(null);
 
   // Flashcard & Word Collection State
   const [allPhrases, setAllPhrases] = useState<Phrase[]>([]);
@@ -80,8 +84,12 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
     setIsSaveWordModalOpen(true);
   };
 
-  const renderInteractiveSentence = (sentenceText: string) => {
-    const tokens = sentenceText.split(/(\s+|[.,!?;:"()]+)/);
+  const renderInteractiveSentence = (sentence: ResourceSentence) => {
+    const tokens = sentence.en.split(/(\s+|[.,!?;:"()]+)/);
+    const activeWordIndex = activeTranscriptWord?.sentenceId === sentence.id
+      ? activeTranscriptWord.wordIndex
+      : -1;
+    let wordIndex = 0;
     return (
       <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--color-text)', lineHeight: 1.5 }}>
         {tokens.map((token, i) => {
@@ -89,33 +97,36 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           if (!isWord) {
             return <span key={i}>{token}</span>;
           }
+          const isActiveWord = wordIndex === activeWordIndex;
+          wordIndex += 1;
           return (
             <button
               type="button"
               key={i}
-              onClick={() => handleOpenSaveWord(token, sentenceText)}
+              onClick={() => handleOpenSaveWord(token, sentence.en)}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--color-primary-soft)';
                 e.currentTarget.style.color = 'var(--color-primary)';
                 e.currentTarget.style.textDecoration = 'underline';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'inherit';
+                e.currentTarget.style.backgroundColor = isActiveWord ? 'var(--color-primary-soft)' : 'transparent';
+                e.currentTarget.style.color = isActiveWord ? 'var(--color-primary)' : 'inherit';
                 e.currentTarget.style.textDecoration = 'none';
               }}
               style={{
                 display: 'inline',
                 border: 'none',
-                background: 'transparent',
+                background: isActiveWord ? 'var(--color-primary-soft)' : 'transparent',
                 font: 'inherit',
-                color: 'inherit',
+                color: isActiveWord ? 'var(--color-primary)' : 'inherit',
                 cursor: 'pointer',
                 borderRadius: '3px',
                 padding: '1px 2px',
-                transition: 'background-color 0.15s ease',
+                transition: 'background-color 0.1s ease',
+                boxShadow: isActiveWord ? 'inset 0 -2px var(--color-primary)' : undefined,
               }}
-              title={`คลิกเพื่อเก็บคำว่า "${token}" เข้า Flashcard`}
+              title={isActiveWord ? `กำลังพูด: ${token}` : `คลิกเพื่อเก็บคำว่า "${token}" เข้า Flashcard`}
               aria-label={`เก็บคำว่า ${token} เข้า Flashcard`}
             >
               {token}
@@ -130,9 +141,69 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
     setSentences(resource.sentences || []);
   }, [resource]);
 
+  useEffect(() => {
+    sentencesRef.current = sentences;
+  }, [sentences]);
+
+  useEffect(() => {
+    if (resource.type !== 'youtube' || !resource.embedUrl) return;
+
+    let disposed = false;
+    let player: YouTubePlayerInstance | null = null;
+    let pollId: number | null = null;
+
+    void loadYouTubeIframeApi().then((youtubeApi) => {
+      if (disposed) return;
+      player = new youtubeApi.Player('youtube-video-iframe', {
+        events: {
+          onReady: (event) => {
+            if (disposed) {
+              event.target.destroy();
+              return;
+            }
+            player = event.target;
+            youtubePlayerRef.current = player;
+            pollId = window.setInterval(() => {
+              const currentTime = player?.getCurrentTime();
+              if (currentTime === undefined || !Number.isFinite(currentTime)) return;
+
+              let nextActiveWord: { sentenceId: string; wordIndex: number } | null = null;
+              for (const sentence of sentencesRef.current) {
+                const wordIndex = findActiveWordIndex(sentence.wordTimings, currentTime);
+                if (wordIndex >= 0) {
+                  nextActiveWord = { sentenceId: sentence.id, wordIndex };
+                  break;
+                }
+              }
+
+              setActiveTranscriptWord((previous) =>
+                previous?.sentenceId === nextActiveWord?.sentenceId && previous?.wordIndex === nextActiveWord?.wordIndex
+                  ? previous
+                  : nextActiveWord
+              );
+            }, 120);
+          },
+        },
+      });
+    }).catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      if (pollId !== null) window.clearInterval(pollId);
+      player?.destroy();
+      youtubePlayerRef.current = null;
+      setActiveTranscriptWord(null);
+    };
+  }, [resource.id, resource.type, resource.embedUrl]);
+
   const handleSeekVideoToTimestamp = (timestamp?: string) => {
     if (!timestamp) return;
     const sec = timestampToSeconds(timestamp);
+    if (youtubePlayerRef.current) {
+      youtubePlayerRef.current.seekTo(sec, true);
+      youtubePlayerRef.current.playVideo();
+      return;
+    }
     const iframe = document.getElementById('youtube-video-iframe') as HTMLIFrameElement | null;
     if (iframe && iframe.contentWindow) {
       iframe.contentWindow.postMessage(
@@ -198,7 +269,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
   const [savedPhraseIds, setSavedPhraseIds] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Reflection & AI Coach State
+  // Reflection & local self-check state
   const [reflectionText, setReflectionText] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<TextFeedbackResponse | null>(null);
@@ -222,6 +293,13 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
 
   // Speech Helper
   const handlePlaySpeech = (sentence: ResourceSentence) => {
+    if (resource.type === 'youtube' && sentence.timestamp) {
+      speechService.stop();
+      setPlayingSentenceId(null);
+      handleSeekVideoToTimestamp(sentence.timestamp);
+      return;
+    }
+
     speechService.stop();
     setPlayingSentenceId(sentence.id);
     speechService.speak(
@@ -387,7 +465,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
             }}
           >
             <Sparkles size={14} />
-            <span>สร้างบทเรียน AI</span>
+            <span>สร้างบทเรียนจากสื่อ</span>
           </Button>
           <Badge variant="primary">{getResourceTypeLabel(resource.type)}</Badge>
           <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -410,10 +488,10 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
 
       {/* Media Player Embed Area */}
       {resource.embedUrl && resource.type === 'youtube' && (() => {
-        let embedSrc = resource.embedUrl;
-        if (!embedSrc.includes('enablejsapi=1')) {
-          embedSrc += (embedSrc.includes('?') ? '&' : '?') + 'enablejsapi=1';
-        }
+        const embedUrl = new URL(resource.embedUrl);
+        embedUrl.searchParams.set('enablejsapi', '1');
+        embedUrl.searchParams.set('origin', window.location.origin);
+        const embedSrc = embedUrl.toString();
         return (
           <Card padding="none" style={{ overflow: 'hidden', borderRadius: '16px', backgroundColor: '#000000' }}>
             <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
@@ -514,7 +592,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           >
             <span style={{ fontSize: '15px' }}>💡</span>
             <span>
-              <strong>เคล็ดลับทำ Flashcard:</strong> สามารถคลิกที่ <strong>คำศัพท์คำใดก็ได้</strong> ในประโยคภาษาอังกฤษด้านล่าง หรือกดปุ่ม <strong>"⭐ เก็บคำศัพท์"</strong> เพื่อดึงความหมายด้วย AI และบันทึกลงคลัง Flashcard ทันที
+              <strong>เคล็ดลับทำ Flashcard:</strong> สามารถคลิกที่ <strong>คำศัพท์คำใดก็ได้</strong> ในประโยคภาษาอังกฤษด้านล่าง หรือกดปุ่ม <strong>"⭐ เก็บคำศัพท์"</strong> เพื่อกรอกคำแปลและบันทึกลงคลัง Flashcard
             </span>
           </div>
         )}
@@ -567,7 +645,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                 ยังไม่มีประโยคสำหรับฝึก Shadowing ในคลิปนี้
               </h3>
               <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
-                กดปุ่มด้านล่างเพื่อถอดประโยคพูดภาษาอังกฤษจากคลิปด้วย AI หรือนำเข้า Transcript จาก YouTube เพื่อเริ่มฝึก Shadowing ได้ทันที
+                กดปุ่มด้านล่างเพื่อดึง captions จาก YouTube (ถ้ามี) หรือนำเข้า Transcript เพื่อเริ่มฝึก Shadowing
               </p>
             </div>
             <Button variant="primary" onClick={() => setIsTranscribeModalOpen(true)} style={{ marginTop: '4px' }}>
@@ -619,7 +697,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
 
                       <div>
                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: 'var(--color-text)', lineHeight: 1.6 }}>
-                          {renderInteractiveSentence(st.en)}
+                          {renderInteractiveSentence(st)}
                         </div>
                         {st.th && (
                           <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginTop: '4px' }}>
@@ -676,7 +754,13 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                       style={{ padding: '6px 12px' }}
                     >
                       <Volume2 size={16} color={isPlayingThis ? 'var(--color-primary)' : undefined} />
-                      <span>{isPlayingThis ? 'กำลังเล่นเสียง...' : 'ฟังเสียงอ่าน'}</span>
+                      <span>
+                        {isPlayingThis
+                          ? 'กำลังเล่นเสียง...'
+                          : resource.type === 'youtube' && st.timestamp
+                            ? 'ฟังเสียงจากคลิป'
+                            : 'ฟังเสียงอ่าน'}
+                      </span>
                     </Button>
 
                     <Button
@@ -912,7 +996,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           }}
         />
 
-        {/* AI Coach Action & Feedback */}
+        {/* Local example feedback */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: 'var(--space-md)' }}>
           <Button
             variant="secondary"
@@ -923,7 +1007,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
             <Sparkles size={15} /> {isLoadingAI ? 'กำลังเตรียมตัวอย่าง...' : 'เทียบความคิดเห็นกับตัวอย่าง'}
           </Button>
           <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-            * ตรวจและแนะนำสำนวนภาษาอังกฤษให้ดูเป็นธรรมชาติ
+            * ลองเปรียบเทียบกับตัวอย่างด้วยตนเอง
           </span>
         </div>
 
@@ -1006,6 +1090,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
         onClose={() => setIsSaveWordModalOpen(false)}
         initialWord={selectedWordForModal}
         contextSentence={selectedSentenceForModal}
+        sourceResourceId={resource.id}
         onSaved={(_phrase) => {
           loadAllPhrases();
           setToastMessage(`บันทึก "${_phrase.en}" เป็น Flashcard สำเร็จแล้ว! 🎴`);

@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { ResourceSentence, TargetPhrase } from '../../types';
 import { parseBulkTextToSentences } from '../../lib/resources/bulkParser';
-import { extractYouTubeId, secondsToTimestamp } from '../../lib/resources/mediaUtils';
+import { extractYouTubeId, fetchYouTubeCaptions, secondsToTimestamp } from '../../lib/resources/mediaUtils';
 import {
   FileText,
   Mic,
@@ -49,6 +49,8 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
 
   // YouTube transcript paste state
   const [transcriptText, setTranscriptText] = useState('');
+  const [isFetchingCaptions, setIsFetchingCaptions] = useState(false);
+  const [captionError, setCaptionError] = useState<string | null>(null);
 
   // Live audio transcribe state
   const [isListeningLive, setIsListeningLive] = useState(false);
@@ -62,6 +64,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
       setPreviewSentences([]);
       setPreviewPhrases([]);
       setTranscriptText('');
+      setCaptionError(null);
     }
   }, [isOpen]);
 
@@ -85,6 +88,21 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
     const parsed = parseBulkTextToSentences(transcriptText);
     if (parsed.length > 0) {
       setPreviewSentences(parsed);
+    }
+  };
+
+  const handleFetchCaptions = async () => {
+    if (!videoUrl) return;
+    setIsFetchingCaptions(true);
+    setCaptionError(null);
+    try {
+      const captions = await fetchYouTubeCaptions(videoUrl);
+      setPreviewSentences(captions);
+      setPreviewPhrases([]);
+    } catch (error) {
+      setCaptionError(error instanceof Error ? error.message : 'ดึง captions ไม่สำเร็จ');
+    } finally {
+      setIsFetchingCaptions(false);
     }
   };
 
@@ -301,15 +319,24 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
                 lineHeight: 1.5,
               }}
             >
-              <div style={{ fontWeight: 700, color: 'var(--color-primary)', marginBottom: '4px' }}>
-                💡 วิธีคัดลอก Transcript จาก YouTube:
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                <strong style={{ color: 'var(--color-primary)' }}>ลองดึง captions สาธารณะจากลิงก์</strong>
+                {videoUrl && (
+                  <Button size="sm" variant="outline" onClick={handleFetchCaptions} disabled={isFetchingCaptions}>
+                    {isFetchingCaptions ? 'กำลังตรวจ captions...' : 'ดึง captions จากลิงก์'}
+                  </Button>
+                )}
               </div>
-              <ol style={{ margin: '0 0 0 16px', padding: 0 }}>
-                <li>เปิดคลิปใน YouTube (คลิก "เปิดคลิปใน YouTube" ด้านบน)</li>
-                <li>ใต้คลิป YouTube กดปุ่ม <b>...</b> หรือ <b>Show transcript (แสดงข้อความถอดเสียง)</b></li>
-                <li>ลากคลุมข้อความทั้งหมด (หรือกด Ctrl+A ในหน้าต่างซับ) แล้วกด Copy มาวางในช่องนี้</li>
-              </ol>
+              <p style={{ margin: '6px 0 0' }}>
+                บางคลิปมี Show transcript บน YouTube แต่ไม่เปิดให้แอปดึงตรง ๆ ให้คัดลอกมาวางด้านล่าง คำแปลไทยเติมเองได้
+              </p>
             </div>
+
+            {captionError && (
+              <div role="alert" style={{ padding: '10px 12px', borderRadius: 'var(--radius-control)', backgroundColor: 'var(--color-error-soft)', color: 'var(--color-error)', fontSize: 'var(--font-size-sm)' }}>
+                {captionError}
+              </div>
+            )}
 
             <textarea
               rows={6}

@@ -47,6 +47,15 @@ test('Settings no longer requests an external AI API key', async ({ page }) => {
   await expect(page.getByText(/OpenRouter|API Key|BYOK/)).toHaveCount(0);
 });
 
+test('Flashcard form suggests POS and grammar tags from local sentence context', async ({ page }) => {
+  await page.goto('/#/resources');
+  await page.getByRole('button', { name: 'ศึกษาจากสื่อนี้' }).click();
+  await page.getByRole('button', { name: 'เก็บคำว่า practice เข้า Flashcard' }).first().click();
+
+  await expect(page.getByPlaceholder('เช่น Noun, Verb, Adjective...')).toHaveValue('Verb');
+  await expect(page.getByPlaceholder('เช่น singular, subject, present tense')).toHaveValue(/present tense/);
+});
+
 test('invalid lesson and resource URLs show recoverable not-found states', async ({ page }) => {
   await page.goto('/#/lesson/does-not-exist');
   await expect(page.getByText('ไม่พบบทเรียนนี้', { exact: true })).toBeVisible();

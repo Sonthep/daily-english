@@ -125,7 +125,9 @@
 
 - [x] Remove API-key setup and OpenRouter proxy/client; clear keys saved by earlier versions
 - [x] Keep answer feedback and pronunciation tips as clearly labeled local examples/self-checks
-- [x] Generate Resource and vocabulary lessons from local templates; parse pasted transcripts locally
+- [x] Generate Resource and vocabulary lessons from local templates; fetch YouTube transcript text through the app backend when requested and parse pasted transcripts locally
+- [x] Add explicit no-key MyMemory English-to-Thai translation for Flashcards with provider disclosure and input-size limits
+- [x] Suggest POS categories and grammatical tags from local sentence context; preserve edits and show searchable tags
 - [x] Preserve backup/import/delete behavior for locally generated custom lessons
 - [x] Replace API-dependent tests with local-only and no-network regression tests
 
