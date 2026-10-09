@@ -114,6 +114,17 @@ describe('Storage & Import Validation', () => {
     expect(res.error).toContain('schemaVersion');
   });
 
+  it('rejects profiles with an invalid IANA timezone', () => {
+    const payload = {
+      ...makeValidExport(),
+      profile: { ...makeValidExport().profile, timezone: 'Not/A-Timezone' },
+    };
+    const res = service.validateImportData(JSON.stringify(payload));
+
+    expect(res.valid).toBe(false);
+    expect(res.error).toContain('Profile');
+  });
+
   it('accepts v2 exports containing the app seed resources', () => {
     const payload = {
       ...makeValidExport(),

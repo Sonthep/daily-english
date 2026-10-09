@@ -28,7 +28,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { usePwaInstall } from '../../lib/pwa/usePwaInstall';
-import { speechService, getStoredVoiceGender, setStoredVoiceGender, getStoredVoiceURI, setStoredVoiceURI, VoiceGender } from '../../lib/audio/speech';
+import { speechService, getStoredVoiceGender, setStoredVoiceGender, getStoredVoiceURI, setStoredVoiceURI, clearStoredVoicePreferences, VoiceGender } from '../../lib/audio/speech';
 
 export interface SettingsScreenProps {
   onProfileUpdated: () => void;
@@ -231,6 +231,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
   const handleConfirmReset = async () => {
     if (resetConfirmationText !== 'RESET') return;
     await storageService.resetDatabase();
+    clearStoredGeminiApiKey();
+    clearStoredVoicePreferences();
     setIsResetModalOpen(false);
     onProfileUpdated();
     alert('รีเซ็ตข้อมูลทั้งหมดเรียบร้อยแล้ว');
@@ -553,7 +555,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
           }}
         >
           <div>
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป OpenRouter ผ่าน HTTPS เมื่อใช้ AI ไม่มีเซิร์ฟเวอร์กลาง แต่ JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้ จึงควรใช้คีย์ที่กำหนดวงเงินต่ำและปิด paid fallback
+            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และเมื่อใช้ AI จะถูกส่งผ่าน serverless proxy ของแอปไปยัง OpenRouter ด้วย HTTPS ตัวแอปไม่บันทึกคีย์บนเซิร์ฟเวอร์ แต่ผู้ให้บริการโฮสต์และ OpenRouter อาจเห็นข้อมูลระหว่างประมวลผล จึงควรใช้คีย์ที่กำหนดวงเงินต่ำและปิด paid fallback
           </div>
           <div style={{ marginTop: '4px' }}>
             ✨ <strong>ใช้งานฟรี:</strong> คุณสามารถสมัครรับ API Key ฟรีได้จาก{' '}
@@ -700,7 +702,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: canInstall ? 'var(--space-md)' : 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text)' }}>
             <Wifi size={14} color="var(--color-primary)" />
-            <span>สถานะระบบแคชออฟไลน์: {isOfflineReady ? 'พร้อมใช้งานแบบออฟไลน์ 100%' : 'กำลังเตรียมระบบ Service Worker'}</span>
+            <span>สถานะระบบแคชออฟไลน์: {isOfflineReady ? 'พร้อมเปิดฟีเจอร์หลักแบบออฟไลน์' : 'ยังแคชไฟล์แอปไม่ครบ กรุณาเชื่อมต่ออินเทอร์เน็ตและเปิดใหม่อีกครั้ง'}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text)' }}>
             <Smartphone size={14} color="var(--color-primary)" />
@@ -770,7 +772,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
           </h2>
         </div>
         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-md)' }}>
-          การกระทำนี้จะล้างประวัติการฝึก บทเรียนที่เรียนจบ และคลังคำศัพท์ทั้งหมดที่คุณสร้างไว้ และเริ่มต้นโปรไฟล์ใหม่
+          การกระทำนี้จะล้างโปรไฟล์ ประวัติการฝึก บทเรียน/สื่อที่สร้าง คลังคำศัพท์ API Key และการตั้งค่าเสียง แล้วเริ่มต้นใหม่
         </p>
 
         <Button

@@ -135,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div style={{ overflow: 'hidden' }}>
               <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--color-text)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                {profile?.displayName || 'คุณปุ๊ก'}
+                {profile?.displayName || 'ผู้เรียน'}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
                 {profile?.dailyMinutes || 5} นาที / วัน

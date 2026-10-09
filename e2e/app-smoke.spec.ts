@@ -40,3 +40,21 @@ test('profile goal and confidence can be changed in Settings', async ({ page }) 
   await expect(page.getByLabel('เป้าหมายหลักในการฝึก')).toHaveValue('gaming');
   await expect(page.getByLabel('ระดับความมั่นใจในภาษาอังกฤษ')).toHaveValue('advancing');
 });
+
+test('invalid lesson and resource URLs show recoverable not-found states', async ({ page }) => {
+  await page.goto('/#/lesson/does-not-exist');
+  await expect(page.getByText('ไม่พบบทเรียนนี้', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'กลับไปหน้าบทเรียน' })).toBeVisible();
+
+  await page.goto('/#/resource-study/does-not-exist');
+  await expect(page.getByText('ไม่พบสื่อฝึกนี้', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'กลับไปคลังสื่อ' })).toBeVisible();
+});
+
+test('a fresh profile does not impersonate the example persona', async ({ page }) => {
+  await page.goto('/#/today');
+
+  await expect(page.getByRole('heading', { name: /ยินดีต้อนรับ/ })).toBeVisible();
+  await expect(page.getByText('ปุ๊ก', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('ผู้เรียน', { exact: true })).toBeVisible();
+});

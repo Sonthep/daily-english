@@ -11,7 +11,8 @@ describe('Date & Duration Utilities', () => {
     expect(formatDurationThai(30)).toBe('30 วินาที');
     expect(formatDurationThai(60)).toBe('1 นาที');
     expect(formatDurationThai(125)).toBe('2 นาที 5 วินาที');
-    expect(formatDurationThai(0)).toBe('1 วินาที'); // clamped minimum for clarity
+    expect(formatDurationThai(0)).toBe('0 วินาที');
+    expect(formatDurationThai(-5)).toBe('0 วินาที');
   });
 
   it('converts UTC timestamp to YYYY-MM-DD in user timezone', () => {
@@ -50,5 +51,15 @@ describe('Date & Duration Utilities', () => {
     expect(lastDay.isToday).toBe(true);
     expect(lastDay.completedSessions).toBe(1);
     expect(lastDay.totalActiveSeconds).toBe(180);
+  });
+
+  it('uses the selected timezone for calendar labels and day numbers', () => {
+    const fixedNow = new Date('2026-10-09T02:00:00.000Z');
+    const activity = getPast7DaysActivity([], 'America/New_York', fixedNow);
+    const lastDay = activity[6];
+
+    expect(lastDay.dateKey).toBe('2026-10-08');
+    expect(lastDay.dayNumber).toBe(8);
+    expect(lastDay.dayLabel).toBe('พฤ');
   });
 });

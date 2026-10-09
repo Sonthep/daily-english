@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { rankEnglishVoices } from '../src/lib/audio/speech';
+import {
+  clearStoredVoicePreferences,
+  getStoredVoiceGender,
+  getStoredVoiceURI,
+  rankEnglishVoices,
+  setStoredVoiceGender,
+  setStoredVoiceURI,
+} from '../src/lib/audio/speech';
 
 function voice(name: string, lang: string, localService = true): SpeechSynthesisVoice {
   return { name, lang, localService, voiceURI: name, default: false } as SpeechSynthesisVoice;
@@ -19,5 +26,20 @@ describe('rankEnglishVoices', () => {
       'Microsoft David - English (United States)',
       'Google UK English Female',
     ]);
+  });
+});
+
+describe('voice preferences', () => {
+  it('clears only the app voice settings during a reset', () => {
+    localStorage.setItem('unrelated-setting', 'keep');
+    setStoredVoiceGender('female');
+    setStoredVoiceURI('voice-1');
+
+    clearStoredVoicePreferences();
+
+    expect(getStoredVoiceGender()).toBe('male');
+    expect(getStoredVoiceURI()).toBe('');
+    expect(localStorage.getItem('unrelated-setting')).toBe('keep');
+    localStorage.removeItem('unrelated-setting');
   });
 });

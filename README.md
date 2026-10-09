@@ -21,9 +21,9 @@ Daily English ถูกออกแบบมาเพื่อตอบโจท
   - โหมด **Shadowing** ฝึกฟังและอัดเสียงพูดตามประโยคสำคัญของสื่อนั้น
   - **Bulk Text & Subtitle Parser**: วางเนื้อเพลง ซับไตเติล (SRT) หรือประโยคสองภาษา (EN/TH) พร้อมกันได้ในคลิกเดียว
   - ปุ่ม 1-Click บันทึกวลีเด่นเข้าคลังคำศัพท์ทันที
-- **ผู้ช่วย AI Coach (Bring Your Own Key — Google Gemini)**:
-  - รองรับการใส่ Google Gemini API Key ของผู้ใช้เอง (ฟรีจาก Google AI Studio)
-  - เก็บ API Key ใน LocalStorage และส่งตรงไป Google Gemini ผ่าน HTTPS โดยไม่มีเซิร์ฟเวอร์กลาง แต่ JavaScript ในเว็บ origin เดียวกันอาจเข้าถึงคีย์ได้ จึงไม่ใช่ secure vault และไม่ควรใช้คีย์ส่วนกลางหรือคีย์ที่มีสิทธิ์กว้าง
+- **ผู้ช่วย AI Coach (Bring Your Own Key — OpenRouter)**:
+  - รองรับการใส่ OpenRouter API Key ของผู้ใช้เองจากหน้า Settings
+  - เก็บ API Key ใน LocalStorage และส่งผ่าน same-origin serverless proxy ไป OpenRouter ด้วย HTTPS เมื่อเรียกใช้ AI โดย proxy ไม่บันทึกคีย์ถาวร แต่คีย์และเนื้อหาจะผ่านระบบโฮสต์และ OpenRouter จึงควรใช้คีย์วงเงินต่ำและปิด paid fallback
   - ช่วยตรวจประโยค แนะนำสำนวนที่เป็นธรรมชาติแบบเจ้าของภาษา พร้อมคำอธิบายภาษาไทยและเสียงอ่าน TTS
 - **Personal Phrase Bank & Spaced Repetition**:
   - คลังคำศัพท์/วลีส่วนตัว เพิ่ม ลบ แก้ไข ฟังเสียง และระบบคำนวณรอบทบทวน (Heuristic Stage 0..5)
@@ -85,7 +85,7 @@ npm run preview
 
 1. **Local Storage Only**: ข้อมูลบันทึกอยู่ใน IndexedDB ของเครื่องและเบราว์เซอร์ปัจจุบัน ไม่มีการเชื่อมต่อคลาวด์หรือซิงค์ข้ามอุปกรณ์ หากต้องการย้ายเครื่องให้ใช้ฟังก์ชัน **Export JSON** ในหน้า Settings
 2. **In-Memory Audio**: ไฟล์เสียงที่บันทึกขณะฝึกบทเรียน (Repeat / Shadowing) จะถูกเก็บไว้ใน Memory ชั่วคราว และจะถูกเคลียร์เมื่อออกจากหน้าหรือรีเฟรชหน้าเว็บ เพื่อความเป็นส่วนตัวและประหยัดพื้นที่จัดเก็บ
-3. **AI Coach (BYOK)**: รองรับการใส่ Google Gemini API Key ของตนเองได้ฟรีในหน้า Settings โดยระบบจะเก็บคีย์ไว้ในเครื่องของผู้ใช้เท่านั้น หากไม่มีคีย์ ระบบจะใช้ Local Example & Self-Check แทนอัตโนมัติ
+3. **AI Coach (BYOK)**: รองรับ OpenRouter API Key ในหน้า Settings คีย์เก็บใน LocalStorage และส่งผ่าน serverless proxy เฉพาะตอนเรียก AI หากไม่มีคีย์ ระบบจะใช้ Local Example & Self-Check แทนอัตโนมัติ
 4. **Voice Synthesizer**: คุณภาพและสำเนียงเสียงอ่านภาษาอังกฤษขึ้นอยู่กับเสียงที่ติดตั้งอยู่ในระบบปฏิบัติการและเบราว์เซอร์ของผู้ใช้
 
 ---

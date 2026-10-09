@@ -2,7 +2,7 @@
 
 ## 1. ภาพรวมสถาปัตยกรรม (High-Level Architecture)
 
-Daily English ใน Phase 1 ถูกออกแบบตามแนวคิด **Local-First Single Page Application (SPA)** โดยไม่มี Backend หรือเซิร์ฟเวอร์ภายนอก เพื่อให้มั่นใจในเรื่องความเป็นส่วนตัว (Privacy), การทำงานที่รวดเร็ว (Zero Network Latency), และความเรียบง่ายในการใช้งาน
+Daily English ใช้แนวคิด **Local-First Single Page Application (SPA)** ข้อมูลการเรียนหลักอยู่ในเบราว์เซอร์และไม่ต้องมีบัญชีผู้ใช้ ส่วนฟีเจอร์ AI ที่ผู้ใช้เลือกเปิดจะเรียก OpenRouter ผ่าน serverless proxy ขนาดเล็กแบบไม่จัดเก็บข้อมูลถาวร เพื่อหลีกเลี่ยงปัญหา CORS และควบคุมเส้นทาง API
 
 ```mermaid
 graph TD
@@ -23,6 +23,8 @@ graph TD
     subgraph Implementation_Layer ["Implementation Layer"]
         IDB_Impl["IndexedDB Implementation (via idb library)"]
         Example_Tutor["ExampleTutorProvider (Phase 1 Local Mock)"]
+        OpenRouter_Tutor["OpenRouter BYOK Provider"]
+        AI_Proxy["Same-Origin Serverless Proxy"]
         Web_Speech["Web SpeechSynthesis API"]
         Media_Recorder["Web MediaRecorder API (In-Memory Blobs)"]
     end
@@ -37,6 +39,9 @@ graph TD
 
     Repo_Interfaces --> IDB_Impl
     Tutor_Interface --> Example_Tutor
+    Tutor_Interface --> OpenRouter_Tutor
+    OpenRouter_Tutor --> AI_Proxy
+    AI_Proxy --> OpenRouter["OpenRouter API"]
     Audio_Services --> Web_Speech
     Audio_Services --> Media_Recorder
 ```
@@ -131,8 +136,8 @@ export interface ITutorProvider {
   getFeedback(questionEn: string, userAnswer: string): Promise<TextFeedbackResponse>;
 }
 ```
-- ใน **Phase 1**: ใช้ `ExampleTutorProvider` ซึ่งจะส่งคืนตัวอย่างคำตอบและ Self-check guideline โดยระบุ `source: 'example'` ชัดเจน
-- ใน **Phase 2**: สามารถสลับไปใช้ `RemoteTutorProvider` ที่เรียกผ่าน Secure Backend API ได้โดยไม่ต้องแก้ UI
+- เมื่อไม่มี API Key หรือคำขอ AI ล้มเหลว จะใช้ local example/self-check และระบุ `source: 'example'` ชัดเจน
+- เมื่อผู้ใช้เปิด OpenRouter BYOK จะใช้ remote provider ผ่าน `/api/openrouter/chat/completions`; serverless proxy ส่งต่อคำขอโดยไม่บันทึกคีย์หรือเนื้อหาลงฐานข้อมูลของแอป
 
 ### 3.3 Audio Engine & Resource Cleanup
 - **Web SpeechSynthesis**: จัดการเลือกเสียงภาษาอังกฤษ (en-US / en-GB) ที่ดีที่สุดในเครื่อง ปรับ playback rate (0.75x, 1x) และแจ้งเตือน Fallback กรณีเครื่องไม่มีเสียง

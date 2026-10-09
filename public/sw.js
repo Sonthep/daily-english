@@ -1,5 +1,7 @@
 // Daily English Service Worker
-const CACHE_NAME = 'daily-english-cache-v1';
+const CACHE_NAME = 'daily-english-cache-v2';
+const OFFLINE_READY_MARKER = '/__daily-english-offline-ready__';
+const BUILD_MANIFEST_URL = '/asset-manifest.json';
 
 const STATIC_PRECACHE = [
   '/',
@@ -9,29 +11,61 @@ const STATIC_PRECACHE = [
   '/logo.svg',
 ];
 
-// Install: precache core shell
+async function getBuildAssetUrls() {
+  const response = await fetch(BUILD_MANIFEST_URL, { cache: 'no-store' });
+  if (!response.ok) return [];
+
+  const manifest = await response.json();
+  const urls = new Set();
+  for (const entry of Object.values(manifest)) {
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.file === 'string') urls.add(`/${entry.file}`);
+      for (const file of entry.css || []) urls.add(`/${file}`);
+      for (const file of entry.assets || []) urls.add(`/${file}`);
+    }
+  }
+  return [...urls];
+}
+
+// Install: precache the shell and every generated route chunk in production.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_PRECACHE).catch((err) => {
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        const buildAssets = await getBuildAssetUrls();
+        await cache.addAll([...STATIC_PRECACHE, ...buildAssets]);
+        if (buildAssets.length > 0) {
+          await cache.put(
+            OFFLINE_READY_MARKER,
+            new Response('ready', { headers: { 'Content-Type': 'text/plain' } })
+          );
+        }
+      } catch (err) {
         console.warn('[SW] Precache partial error:', err);
-      });
-    }).then(() => self.skipWaiting())
+      }
+      await self.skipWaiting();
+    })()
   );
 });
 
 // Activate: clean up old cache versions
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    caches.keys().then(async (cacheNames) => {
+      await Promise.all(
         cacheNames.map((name) => {
           if (name !== CACHE_NAME) {
             return caches.delete(name);
           }
         })
       );
-    }).then(() => self.clients.claim())
+      await self.clients.claim();
+      const cache = await caches.open(CACHE_NAME);
+      const isOfflineReady = Boolean(await cache.match(OFFLINE_READY_MARKER));
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach((client) => client.postMessage({ type: 'OFFLINE_READY', ready: isOfflineReady }));
+    })
   );
 });
 
@@ -50,9 +84,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Always bypass Gemini AI API & YouTube streaming calls
+  // 3. Always bypass AI API and YouTube streaming calls
   if (
-    url.hostname.includes('generativelanguage.googleapis.com') ||
+    url.pathname.startsWith('/api/openrouter/') ||
+    url.hostname.includes('openrouter.ai') ||
     url.hostname.includes('youtube.com') ||
     url.hostname.includes('googlevideo.com') ||
     url.hostname.includes('ytimg.com')

@@ -93,7 +93,8 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
             return <span key={i}>{token}</span>;
           }
           return (
-            <span
+            <button
+              type="button"
               key={i}
               onClick={() => handleOpenSaveWord(token, sentenceText)}
               onMouseEnter={(e) => {
@@ -107,15 +108,21 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                 e.currentTarget.style.textDecoration = 'none';
               }}
               style={{
+                display: 'inline',
+                border: 'none',
+                background: 'transparent',
+                font: 'inherit',
+                color: 'inherit',
                 cursor: 'pointer',
                 borderRadius: '3px',
                 padding: '1px 2px',
                 transition: 'background-color 0.15s ease',
               }}
               title={`คลิกเพื่อเก็บคำว่า "${token}" เข้า Flashcard`}
+              aria-label={`เก็บคำว่า ${token} เข้า Flashcard`}
             >
               {token}
-            </span>
+            </button>
           );
         })}
       </div>
@@ -978,16 +985,16 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
               lineHeight: 1.5,
             }}
           >
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป OpenRouter เมื่อใช้ AI; JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้
+            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งผ่าน serverless proxy ไป OpenRouter เมื่อใช้ AI; proxy ไม่บันทึกคีย์ถาวร
             <div style={{ marginTop: '4px' }}>
               ✨ รับ API Key ฟรีได้ที่{' '}
               <a
-                href="https://aistudio.google.com/app/apikey"
+                href="https://openrouter.ai/keys"
                 target="_blank"
                 rel="noreferrer"
                 style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}
               >
-                Google AI Studio
+                OpenRouter Keys
               </a>
             </div>
           </div>
@@ -1006,7 +1013,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                 type="password"
                 value={quickApiKey}
                 onChange={(e) => setQuickApiKey(e.target.value)}
-                placeholder="AIzaSy..."
+                placeholder="sk-or-v1-..."
                 style={{
                   width: '100%',
                   padding: '10px 14px 10px 38px',

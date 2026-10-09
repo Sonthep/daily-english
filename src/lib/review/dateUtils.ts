@@ -5,11 +5,12 @@ import { Session } from '../../types';
  * e.g. "5 นาที 20 วินาที" or "12 วินาที"
  */
 export function formatDurationThai(seconds: number): string {
-  if (seconds < 60) {
-    return `${Math.max(1, Math.round(seconds))} วินาที`;
+  const safeSeconds = Math.max(0, Math.round(seconds));
+  if (safeSeconds < 60) {
+    return `${safeSeconds} วินาที`;
   }
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
   if (secs === 0) {
     return `${mins} นาที`;
   }
@@ -79,12 +80,17 @@ export function getPast7DaysActivity(
   const days: DayActivity[] = [];
   const todayKey = getDayKeyInTimezone(now.toISOString(), timezone);
 
-  // Generate 7 days ending with today
+  const [todayYear, todayMonth, todayDay] = todayKey.split('-').map(Number);
+  const todayCalendarUtc = Date.UTC(todayYear, todayMonth - 1, todayDay);
+
+  // Generate seven distinct calendar dates in the selected timezone.
   for (let i = 6; i >= 0; i--) {
-    const targetDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const key = getDayKeyInTimezone(targetDate.toISOString(), timezone);
-    const dayOfWeek = targetDate.getDay();
-    const dayNumber = targetDate.getDate();
+    const calendarDate = new Date(todayCalendarUtc - i * 24 * 60 * 60 * 1000);
+    const year = calendarDate.getUTCFullYear();
+    const month = String(calendarDate.getUTCMonth() + 1).padStart(2, '0');
+    const dayNumber = calendarDate.getUTCDate();
+    const key = `${year}-${month}-${String(dayNumber).padStart(2, '0')}`;
+    const dayOfWeek = calendarDate.getUTCDay();
     const activity = activityMap.get(key) || { count: 0, seconds: 0 };
 
     days.push({

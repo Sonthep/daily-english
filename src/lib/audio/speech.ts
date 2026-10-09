@@ -44,6 +44,15 @@ export function setStoredVoiceURI(voiceURI: string): void {
   }
 }
 
+export function clearStoredVoicePreferences(): void {
+  try {
+    localStorage.removeItem(VOICE_GENDER_STORAGE_KEY);
+    localStorage.removeItem(VOICE_URI_STORAGE_KEY);
+  } catch (err) {
+    console.warn('Unable to clear voice preferences', err);
+  }
+}
+
 export function rankEnglishVoices(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
   const englishVoices = voices.filter((voice) => /^en([-_]|$)/i.test(voice.lang));
   const naturalTerms = ['natural', 'neural', 'online', 'google', 'siri', 'premium'];

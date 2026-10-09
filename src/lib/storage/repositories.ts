@@ -32,6 +32,16 @@ const isNonEmptyString = (value: unknown): value is string =>
 const isTimestamp = (value: unknown): value is string =>
   typeof value === 'string' && Number.isFinite(Date.parse(value));
 
+const isValidTimezone = (value: unknown): value is string => {
+  if (!isNonEmptyString(value)) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
 
@@ -80,7 +90,7 @@ const isProfile = (value: unknown): boolean =>
   isStringArray(value.goals) &&
   (value.dailyMinutes === 5 || value.dailyMinutes === 15) &&
   ['beginner', 'intermediate', 'advancing'].includes(String(value.confidence)) &&
-  isNonEmptyString(value.timezone) &&
+  isValidTimezone(value.timezone) &&
   typeof value.onboardingCompleted === 'boolean' &&
   isTimestamp(value.createdAt) &&
   isTimestamp(value.updatedAt);

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 
@@ -21,18 +21,58 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (isOpen) {
       previousActiveElementRef.current = document.activeElement as HTMLElement;
-      // Focus modal
-      setTimeout(() => {
-        modalRef.current?.focus();
-      }, 50);
+      const previousBodyOverflow = document.body.style.overflow;
+      const focusableSelector = [
+        'a[href]',
+        'button:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(',');
+      const focusTimer = window.setTimeout(() => {
+        const firstFocusable = modalRef.current?.querySelector<HTMLElement>(focusableSelector);
+        (firstFocusable ?? modalRef.current)?.focus();
+      }, 0);
 
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-          onClose();
+          onCloseRef.current();
+          return;
+        }
+
+        if (e.key !== 'Tab' || !modalRef.current) return;
+
+        const focusableElements = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(focusableSelector),
+        ).filter((element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true');
+
+        if (focusableElements.length === 0) {
+          e.preventDefault();
+          modalRef.current.focus();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
         }
       };
 
@@ -40,14 +80,15 @@ export const Modal: React.FC<ModalProps> = ({
       document.body.style.overflow = 'hidden';
 
       return () => {
+        window.clearTimeout(focusTimer);
         document.removeEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = '';
+        document.body.style.overflow = previousBodyOverflow;
         if (previousActiveElementRef.current) {
           previousActiveElementRef.current.focus();
         }
       };
     }
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -55,7 +96,8 @@ export const Modal: React.FC<ModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
       style={{
         position: 'fixed',
         inset: 0,
@@ -102,11 +144,11 @@ export const Modal: React.FC<ModalProps> = ({
           }}
         >
           <div>
-            <h2 id="modal-title" style={{ fontSize: 'var(--font-size-lg)', color: 'var(--color-text)' }}>
+            <h2 id={titleId} style={{ fontSize: 'var(--font-size-lg)', color: 'var(--color-text)' }}>
               {title}
             </h2>
             {description && (
-              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              <p id={descriptionId} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                 {description}
               </p>
             )}

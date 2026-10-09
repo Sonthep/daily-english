@@ -136,7 +136,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
         setPreviewPhrases(result.targetPhrases);
       }
     } catch (err: any) {
-      setAiError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อกับ Gemini AI');
+      setAiError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อกับ OpenRouter');
     } finally {
       setIsAiLoading(false);
     }
@@ -335,7 +335,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
             }}
           >
             <Sparkles size={16} />
-            <span>ถอดด้วย AI (Gemini)</span>
+            <span>ถอดด้วย AI (OpenRouter)</span>
           </button>
 
           <button
@@ -388,7 +388,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
           </button>
         </div>
 
-        {/* TAB 1: AI Transcribe (Gemini) */}
+        {/* TAB 1: AI Transcribe (OpenRouter) */}
         {activeTab === 'ai' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
             {!hasApiKey ? (
@@ -405,17 +405,17 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9A5B18', fontWeight: 600, fontSize: '13px' }}>
                   <Key size={16} />
-                  <span>กรอก Google Gemini API Key เพื่อถอดประโยคอัตโนมัติด้วย AI</span>
+                  <span>กรอก OpenRouter API Key เพื่อถอดประโยคอัตโนมัติด้วย AI</span>
                 </div>
                 <p style={{ fontSize: '12px', color: '#7D4F1E', margin: 0 }}>
-                  Gemini API ใช้งานได้ฟรี (Free Tier) สามารถรับคีย์ได้จาก Google AI Studio
+                  ใช้โมเดลฟรีผ่าน OpenRouter ได้เมื่อมีโควตา รับคีย์ได้จากหน้า OpenRouter Keys
                 </p>
                 <form onSubmit={handleSaveApiKey} style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="password"
                     value={apiKeyInput}
                     onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder="วาง AIzaSy... ที่นี่"
+                    placeholder="วาง sk-or-v1-... ที่นี่"
                     style={{
                       flex: 1,
                       padding: '8px 12px',
@@ -444,7 +444,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
                 }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Check size={14} /> Google Gemini (3.6 Flash) พร้อมใช้งาน
+                  <Check size={14} /> OpenRouter พร้อมใช้งาน
                 </span>
                 <button
                   onClick={() => {

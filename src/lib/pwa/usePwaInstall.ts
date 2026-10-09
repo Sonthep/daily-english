@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const OFFLINE_READY_MARKER = '/__daily-english-offline-ready__';
+
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
@@ -22,7 +24,6 @@ export function usePwaInstall(): PwaInstallState {
   const [isOfflineReady, setIsOfflineReady] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Check if already installed or running in standalone mode
     const checkStandalone = () => {
       const isStandalone =
         window.matchMedia('(display-mode: standalone)').matches ||
@@ -33,14 +34,6 @@ export function usePwaInstall(): PwaInstallState {
 
     checkStandalone();
 
-    // 2. Check service worker status
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(() => {
-        setIsOfflineReady(true);
-      });
-    }
-
-    // 3. Listen for browser install banner trigger
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -54,9 +47,37 @@ export function usePwaInstall(): PwaInstallState {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    const updateOfflineReady = async () => {
+      try {
+        const marker = 'caches' in window
+          ? await window.caches.match(OFFLINE_READY_MARKER)
+          : undefined;
+        setIsOfflineReady(Boolean(marker));
+      } catch {
+        setIsOfflineReady(false);
+      }
+    };
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OFFLINE_READY') {
+        setIsOfflineReady(event.data.ready === true);
+      }
+    };
+
+    if ('serviceWorker' in navigator) {
+      void navigator.serviceWorker.ready.then(updateOfflineReady).catch(() => {
+        setIsOfflineReady(false);
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', updateOfflineReady);
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('controllerchange', updateOfflineReady);
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
     };
   }, []);
 

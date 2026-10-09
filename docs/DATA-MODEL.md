@@ -2,7 +2,7 @@
 
 ## 1. ข้อมูลโมเดลหลัก (TypeScript Interfaces)
 
-ข้อมูลทั้งหมดจะถูกจัดเก็บใน **IndexedDB** ภายใต้ชื่อฐานข้อมูล `daily_english_db` และมีหมายเลข `schemaVersion: 1`
+ข้อมูลทั้งหมดจะถูกจัดเก็บใน **IndexedDB** ภายใต้ชื่อฐานข้อมูล `daily_english_db` โดยฐานข้อมูลและไฟล์ Export ปัจจุบันใช้ `schemaVersion: 2`
 
 ### 1.1 Profile (`profiles` store)
 เก็บบัญชีและการตั้งค่าของผู้ใช้:
@@ -48,7 +48,7 @@ export interface Lesson {
   id: string;                         // เช่น 'design-feedback'
   titleTh: string;                    // ชื่อภาษาไทย
   titleEn: string;                    // ชื่อภาษาอังกฤษ
-  category: 'Design & Marketing' | 'Daily Life' | 'Gaming';
+  category: 'Design & Marketing' | 'Daily Life' | 'Gaming' | 'Custom AI';
   objectiveTh: string;                // สิ่งที่จะทำได้หลังฝึก
   sentences: LessonSentence[];        // ประโยคสำหรับ Listen & Repeat
   prompts: LessonPrompt[];            // คำถามสำหรับ Use it

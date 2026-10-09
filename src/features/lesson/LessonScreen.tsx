@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -9,7 +9,6 @@ import {
   Session,
   LessonStep,
   ReviewEvent,
-  UserAnswer,
 } from '../../types';
 import {
   sessionRepo,
@@ -23,6 +22,7 @@ import { evaluatePronunciation, PronunciationScoreResult } from '../../lib/audio
 import { PronunciationFeedbackCard } from '../../components/audio/PronunciationFeedbackCard';
 import { calculateNextReview, createNewPhrase } from '../../lib/review/scheduler';
 import { formatDurationThai } from '../../lib/review/dateUtils';
+import { createSessionProgressSnapshot } from '../../lib/session/sessionSnapshot';
 import { getActiveTutorProvider, getStoredGeminiApiKey, setStoredGeminiApiKey } from '../../lib/ai/provider';
 import { TextFeedbackResponse } from '../../lib/ai/types';
 import { AICoachFeedbackCard } from '../../components/ai/AICoachFeedbackCard';
@@ -62,6 +62,9 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [reviewedPhraseIds, setReviewedPhraseIds] = useState<string[]>([]);
   const [activeSeconds, setActiveSeconds] = useState<number>(0);
+  const sessionWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const isCompletingSessionRef = useRef(false);
+  const lastSavedStructureRef = useRef('');
 
   // Audio Playback State (Listen)
   const [speechRate, setSpeechRate] = useState<0.75 | 1.0>(1.0);
@@ -88,6 +91,8 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
   // Review State
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
+  const [isSavingReview, setIsSavingReview] = useState<boolean>(false);
+  const isReviewSubmittingRef = useRef(false);
 
   // Confirm Exit Modal
   const [isExitModalOpen, setIsExitModalOpen] = useState<boolean>(false);
@@ -101,6 +106,14 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
   const phraseCount = initialModeMinutes === 5 ? 3 : Math.min(5, lesson.targetPhrases.length);
   const activePhrases = lesson.targetPhrases.slice(0, phraseCount);
+
+  const enqueueSessionWrite = (write: () => Promise<void>): Promise<void> => {
+    const nextWrite = sessionWriteQueueRef.current
+      .catch(() => undefined)
+      .then(write);
+    sessionWriteQueueRef.current = nextWrite;
+    return nextWrite;
+  };
 
   // 1. Initialize or Resume Session
   useEffect(() => {
@@ -172,28 +185,35 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     return () => clearInterval(interval);
   }, [currentStep]);
 
-  // 3. Save progress to IndexedDB on step or item change
+  // 3. Save structural changes immediately and checkpoint active time every 5 seconds.
   useEffect(() => {
-    if (!session || currentStep === 'summary') return;
+    if (!session || currentStep === 'summary' || isCompletingSessionRef.current) return;
 
-    const answersArray: UserAnswer[] = Object.entries(userAnswers).map(([promptId, answerText]) => ({
-      promptId,
-      answerText,
-      answeredAt: new Date().toISOString(),
-    }));
+    const structureKey = JSON.stringify({
+      sessionId: session.id,
+      currentStep,
+      itemIndex,
+      userAnswers,
+      reviewedPhraseIds,
+    });
+    const structureChanged = structureKey !== lastSavedStructureRef.current;
+    const isTimerCheckpoint = activeSeconds > 0 && activeSeconds % 5 === 0;
+    if (!structureChanged && !isTimerCheckpoint) return;
 
-    const updated: Session = {
-      ...session,
+    lastSavedStructureRef.current = structureKey;
+    const updated = createSessionProgressSnapshot(session, {
       currentStep,
       currentItemIndex: itemIndex,
-      answers: answersArray,
+      userAnswers,
       reviewedPhraseIds,
       activeDurationSeconds: activeSeconds,
-      updatedAt: new Date().toISOString(),
-    };
+    });
 
-    sessionRepo.saveSession(updated);
-  }, [currentStep, itemIndex, userAnswers, reviewedPhraseIds, activeSeconds]);
+    setSession(updated);
+    void enqueueSessionWrite(() => sessionRepo.saveSession(updated)).catch((error) => {
+      console.error('Failed to save lesson progress', error);
+    });
+  }, [session?.id, currentStep, itemIndex, userAnswers, reviewedPhraseIds, activeSeconds]);
 
   // 4. Trigger celebration confetti on summary
   useEffect(() => {
@@ -340,7 +360,11 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   // Review Helpers
   const handleReviewAnswer = async (result: 'again' | 'remembered') => {
     const currentTarget = activePhrases[itemIndex];
-    if (!currentTarget) return;
+    if (!currentTarget || isReviewSubmittingRef.current) return;
+
+    isReviewSubmittingRef.current = true;
+    setIsSavingReview(true);
+    try {
 
     // Check if phrase already exists in repository
     const allPhrases = await phraseRepo.getAllPhrases();
@@ -351,6 +375,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     const now = new Date();
     let newStage = 0;
     let nextDue = now.toISOString();
+    const previousStage = existing?.reviewStage ?? 0;
 
     if (existing) {
       const calc = calculateNextReview(existing.reviewStage, result, now);
@@ -388,12 +413,13 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       phraseId: existing.id,
       result,
       reviewedAt: now.toISOString(),
-      previousStage: existing.reviewStage,
+      previousStage,
       nextStage: newStage,
     };
     await reviewRepo.recordReviewEvent(event);
 
-    setReviewedPhraseIds((prev) => [...prev, currentTarget.id]);
+    const nextReviewedPhraseIds = [...new Set([...reviewedPhraseIds, currentTarget.id])];
+    setReviewedPhraseIds(nextReviewedPhraseIds);
 
     // Move to next phrase or summary
     setIsFlipped(false);
@@ -402,18 +428,54 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     } else {
       // Complete lesson session idempotently
       if (session) {
+        isCompletingSessionRef.current = true;
+        const completedAt = new Date().toISOString();
         const completed: Session = {
-          ...session,
-          currentStep: 'summary',
-          currentItemIndex: 0,
-          activeDurationSeconds: activeSeconds,
-          completedAt: session.completedAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          ...createSessionProgressSnapshot(
+            session,
+            {
+              currentStep: 'summary',
+              currentItemIndex: 0,
+              userAnswers,
+              reviewedPhraseIds: nextReviewedPhraseIds,
+              activeDurationSeconds: activeSeconds,
+            },
+            completedAt
+          ),
+          completedAt: session.completedAt || completedAt,
         };
-        await sessionRepo.completeSession(completed);
-        setSession(completed);
+        try {
+          await enqueueSessionWrite(() => sessionRepo.completeSession(completed));
+          setSession(completed);
+        } finally {
+          isCompletingSessionRef.current = false;
+        }
       }
       setCurrentStep('summary');
+    }
+    } finally {
+      isReviewSubmittingRef.current = false;
+      setIsSavingReview(false);
+    }
+  };
+
+  const handleExitLesson = async () => {
+    try {
+      if (session && currentStep !== 'summary') {
+        const snapshot = createSessionProgressSnapshot(session, {
+          currentStep,
+          currentItemIndex: itemIndex,
+          userAnswers,
+          reviewedPhraseIds,
+          activeDurationSeconds: activeSeconds,
+        });
+        setSession(snapshot);
+        await enqueueSessionWrite(() => sessionRepo.saveSession(snapshot));
+      }
+    } catch (error) {
+      console.error('Failed to save lesson before exit', error);
+    } finally {
+      onExit();
     }
   };
 
@@ -447,7 +509,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               if (currentStep !== 'summary') {
                 setIsExitModalOpen(true);
               } else {
-                onExit();
+                void handleExitLesson();
               }
             }}
             style={{ padding: '6px 12px' }}
@@ -1213,6 +1275,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               <Button
                 variant="danger"
                 size="lg"
+                disabled={isSavingReview}
                 onClick={() => handleReviewAnswer('again')}
               >
                 <RotateCcw size={18} />
@@ -1221,6 +1284,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               <Button
                 variant="primary"
                 size="lg"
+                disabled={isSavingReview}
                 onClick={() => handleReviewAnswer('remembered')}
               >
                 <Check size={18} />
@@ -1334,7 +1398,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           </div>
 
           {/* Return Home Button */}
-          <Button size="lg" onClick={onExit} style={{ marginTop: 'var(--space-md)' }}>
+          <Button size="lg" onClick={() => void handleExitLesson()} style={{ marginTop: 'var(--space-md)' }}>
             กลับหน้าหลัก (Today)
           </Button>
         </Card>
@@ -1353,9 +1417,9 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           </Button>
           <Button
             variant="primary"
-            onClick={() => {
+            onClick={async () => {
               setIsExitModalOpen(false);
-              onExit();
+              await handleExitLesson();
             }}
           >
             ยืนยันออก
@@ -1381,23 +1445,23 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               lineHeight: 1.5,
             }}
           >
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งตรงไป OpenRouter เมื่อใช้ AI; JavaScript ในเว็บ origin เดียวกันอาจอ่านคีย์ได้
+            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งผ่าน serverless proxy ไป OpenRouter เมื่อใช้ AI; proxy ไม่บันทึกคีย์ถาวร
             <div style={{ marginTop: '4px' }}>
               ✨ สามารถขอรับ API Key ฟรีได้ที่{' '}
               <a
-                href="https://aistudio.google.com/app/apikey"
+                href="https://openrouter.ai/keys"
                 target="_blank"
                 rel="noreferrer"
                 style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
               >
-                Google AI Studio <ExternalLink size={12} />
+                OpenRouter Keys <ExternalLink size={12} />
               </a>
             </div>
           </div>
 
           <div>
             <label
-              htmlFor="quick-gemini-key"
+              htmlFor="quick-openrouter-key"
               style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
             >
               OpenRouter API Key:
@@ -1405,11 +1469,11 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <Key size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '12px' }} />
               <input
-                id="quick-gemini-key"
+                id="quick-openrouter-key"
                 type="password"
                 value={quickApiKey}
                 onChange={(e) => setQuickApiKey(e.target.value)}
-                placeholder="AIzaSy..."
+                placeholder="sk-or-v1-..."
                 style={{
                   width: '100%',
                   padding: '10px 14px 10px 38px',

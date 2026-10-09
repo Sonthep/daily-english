@@ -1,7 +1,9 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { AppShell } from './components/layout/AppShell';
+import { EmptyState } from './components/ui/EmptyState';
 import { AppRoute, Profile, Lesson, LearningResource } from './types';
 import { profileRepo, lessonRepo, resourceRepo } from './lib/storage/repositories';
+import { BookOpen, Video } from 'lucide-react';
 
 const TodayScreen = lazy(() => import('./features/today/TodayScreen').then((module) => ({ default: module.TodayScreen })));
 const PracticeScreen = lazy(() => import('./features/practice/PracticeScreen').then((module) => ({ default: module.PracticeScreen })));
@@ -12,6 +14,8 @@ const PhrasesScreen = lazy(() => import('./features/phrases/PhrasesScreen').then
 const ProgressScreen = lazy(() => import('./features/progress/ProgressScreen').then((module) => ({ default: module.ProgressScreen })));
 const SettingsScreen = lazy(() => import('./features/settings/SettingsScreen').then((module) => ({ default: module.SettingsScreen })));
 
+type RouteContentState = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
+
 export const App: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentRoute, setCurrentRoute] = useState<AppRoute>({ path: 'today' });
@@ -19,6 +23,8 @@ export const App: React.FC = () => {
   const [currentResource, setCurrentResource] = useState<LearningResource | null>(null);
   const [lessonModeMinutes, setLessonModeMinutes] = useState<5 | 15>(5);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [routeContentState, setRouteContentState] = useState<RouteContentState>('idle');
+  const routeLoadIdRef = useRef(0);
 
   // Parse URL hash on mount or hash change
   const parseRouteFromUrl = (): AppRoute => {
@@ -41,7 +47,11 @@ export const App: React.FC = () => {
   };
 
   const navigateTo = (route: AppRoute) => {
+    routeLoadIdRef.current += 1;
     setCurrentRoute(route);
+    if (route.path !== 'lesson' && route.path !== 'resource-study') {
+      setRouteContentState('idle');
+    }
     let hash = `#/${route.path}`;
     if (route.path === 'lesson') {
       hash = `#/lesson/${route.lessonId}`;
@@ -52,17 +62,39 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const loadLesson = async (lessonId: string) => {
-    const lesson = await lessonRepo.getLessonById(lessonId);
-    if (lesson) {
+  const loadLesson = async (lessonId: string): Promise<Lesson | null> => {
+    const loadId = ++routeLoadIdRef.current;
+    setCurrentLesson(null);
+    setRouteContentState('loading');
+    try {
+      const lesson = await lessonRepo.getLessonById(lessonId);
+      if (loadId !== routeLoadIdRef.current) return lesson;
       setCurrentLesson(lesson);
+      setRouteContentState(lesson ? 'ready' : 'not-found');
+      return lesson;
+    } catch (error) {
+      if (loadId !== routeLoadIdRef.current) return null;
+      console.error('Failed to load lesson', error);
+      setRouteContentState('error');
+      return null;
     }
   };
 
-  const loadResource = async (resourceId: string) => {
-    const res = await resourceRepo.getResourceById(resourceId);
-    if (res) {
-      setCurrentResource(res);
+  const loadResource = async (resourceId: string): Promise<LearningResource | null> => {
+    const loadId = ++routeLoadIdRef.current;
+    setCurrentResource(null);
+    setRouteContentState('loading');
+    try {
+      const resource = await resourceRepo.getResourceById(resourceId);
+      if (loadId !== routeLoadIdRef.current) return resource;
+      setCurrentResource(resource);
+      setRouteContentState(resource ? 'ready' : 'not-found');
+      return resource;
+    } catch (error) {
+      if (loadId !== routeLoadIdRef.current) return null;
+      console.error('Failed to load learning resource', error);
+      setRouteContentState('error');
+      return null;
     }
   };
 
@@ -196,12 +228,48 @@ export const App: React.FC = () => {
         />
       )}
 
+      {currentRoute.path === 'resource-study' && !currentResource && routeContentState === 'loading' && (
+        <div role="status" style={{ padding: 'var(--space-xl)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+          กำลังโหลดสื่อฝึก...
+        </div>
+      )}
+
+      {currentRoute.path === 'resource-study' && !currentResource && (routeContentState === 'not-found' || routeContentState === 'error') && (
+        <div style={{ maxWidth: '680px', margin: 'var(--space-2xl) auto', padding: 'var(--space-base)' }}>
+          <EmptyState
+            icon={<Video size={26} />}
+            title={routeContentState === 'not-found' ? 'ไม่พบสื่อฝึกนี้' : 'เปิดสื่อฝึกไม่สำเร็จ'}
+            description={routeContentState === 'not-found' ? 'สื่อนี้อาจถูกลบหรือ URL ไม่ถูกต้อง' : 'กรุณาลองใหม่ หรือกลับไปเลือกสื่อจากคลัง'}
+            actionLabel="กลับไปคลังสื่อ"
+            onAction={() => navigateTo({ path: 'resources' })}
+          />
+        </div>
+      )}
+
       {currentRoute.path === 'lesson' && currentLesson && (
         <LessonScreen
           lesson={currentLesson}
           initialModeMinutes={lessonModeMinutes}
           onExit={() => navigateTo({ path: 'today' })}
         />
+      )}
+
+      {currentRoute.path === 'lesson' && !currentLesson && routeContentState === 'loading' && (
+        <div role="status" style={{ padding: 'var(--space-xl)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+          กำลังโหลดบทเรียน...
+        </div>
+      )}
+
+      {currentRoute.path === 'lesson' && !currentLesson && (routeContentState === 'not-found' || routeContentState === 'error') && (
+        <div style={{ maxWidth: '680px', margin: 'var(--space-2xl) auto', padding: 'var(--space-base)' }}>
+          <EmptyState
+            icon={<BookOpen size={26} />}
+            title={routeContentState === 'not-found' ? 'ไม่พบบทเรียนนี้' : 'เปิดบทเรียนไม่สำเร็จ'}
+            description={routeContentState === 'not-found' ? 'บทเรียนนี้อาจถูกลบหรือ URL ไม่ถูกต้อง' : 'กรุณาลองใหม่ หรือกลับไปเลือกบทเรียนจากคลัง'}
+            actionLabel="กลับไปหน้าบทเรียน"
+            onAction={() => navigateTo({ path: 'practice' })}
+          />
+        </div>
       )}
 
       {currentRoute.path === 'phrases' && (
