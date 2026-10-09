@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
 import { Phrase } from '../../types';
 import { phraseRepo } from '../../lib/storage/repositories';
 import { createNewPhrase } from '../../lib/review/scheduler';
 import { speechService } from '../../lib/audio/speech';
-import { lookupWordWithGemini } from '../../lib/ai/geminiProvider';
 import {
   Volume2,
-  Sparkles,
   Check,
   Bookmark,
 } from 'lucide-react';
@@ -40,10 +37,7 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
   const [th, setTh] = useState('');
   const [example, setExample] = useState(sentenceContext);
   const [category, setCategory] = useState(defaultCategory);
-  const [partOfSpeech, setPartOfSpeech] = useState<string>('');
-  const [phonetic, setPhonetic] = useState<string>('');
 
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
 
@@ -55,34 +49,11 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
       setExample(defaultEx);
       setCategory(defaultCategory || 'Vocabulary');
       setTh('');
-      setPartOfSpeech('');
-      setPhonetic('');
       setIsSavedSuccess(false);
-
-      // Auto-lookup if a word was selected
-      if (clean) {
-        handleLookup(clean, defaultEx);
-      }
     } else {
       speechService.stop();
     }
   }, [isOpen, initialWord, initialExample, contextSentence, defaultCategory]);
-
-  const handleLookup = async (lookupWord: string, context?: string) => {
-    if (!lookupWord.trim()) return;
-    setIsLoadingAi(true);
-    try {
-      const res = await lookupWordWithGemini(lookupWord, context || example);
-      if (res.th) setTh(res.th);
-      if (res.partOfSpeech) setPartOfSpeech(res.partOfSpeech);
-      if (res.phonetic) setPhonetic(res.phonetic);
-      if (res.example && (!example || example.length < 5)) {
-        setExample(res.example);
-      }
-    } finally {
-      setIsLoadingAi(false);
-    }
-  };
 
   const handlePlayWordSpeech = () => {
     if (!word.trim()) return;
@@ -159,34 +130,7 @@ export const SaveWordModal: React.FC<SaveWordModalProps> = ({
             >
               <Volume2 size={16} color={isPlayingAudio ? 'var(--color-primary)' : undefined} />
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => handleLookup(word, example)}
-              disabled={isLoadingAi || !word.trim()}
-              title="ค้นหาความหมายและตัวอย่างด้วย AI"
-              style={{ padding: '0 12px', fontSize: '12px' }}
-            >
-              <Sparkles size={14} />
-              <span>{isLoadingAi ? 'กำลังค้นหา...' : 'AI แปล'}</span>
-            </Button>
           </div>
-
-          {(phonetic || partOfSpeech) && (
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
-              {partOfSpeech && (
-                <Badge variant="neutral">
-                  {partOfSpeech}
-                </Badge>
-              )}
-              {phonetic && (
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>
-                  {phonetic}
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Thai Translation */}

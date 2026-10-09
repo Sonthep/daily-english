@@ -41,6 +41,12 @@ test('profile goal and confidence can be changed in Settings', async ({ page }) 
   await expect(page.getByLabel('ระดับความมั่นใจในภาษาอังกฤษ')).toHaveValue('advancing');
 });
 
+test('Settings no longer requests an external AI API key', async ({ page }) => {
+  await page.goto('/#/settings');
+
+  await expect(page.getByText(/OpenRouter|API Key|BYOK/)).toHaveCount(0);
+});
+
 test('invalid lesson and resource URLs show recoverable not-found states', async ({ page }) => {
   await page.goto('/#/lesson/does-not-exist');
   await expect(page.getByText('ไม่พบบทเรียนนี้', { exact: true })).toBeVisible();

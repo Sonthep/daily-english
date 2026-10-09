@@ -13,7 +13,7 @@ Daily English ถูกออกแบบมาเพื่อตอบโจท
 - **5-Step Practical Lesson Flow**:
   1. **Listen**: ฟังประโยคภาษาอังกฤษด้วย Web Speech Synthesis, ปรับความเร็ว 0.75x / 1.0x, ซ่อน/แสดงคำแปล
   2. **Repeat**: ฝึกพูดตามพร้อมระบบอัดเสียงเพื่อฟังเสียงตัวเอง หรือเลือกพิมพ์ตอบ (Typed Fallback) หากไม่สะดวกใช้ไมโครโฟน
-  3. **Use it**: ฝึกนำประโยคไปประยุกต์ตอบคำถามเกี่ยวกับตัวเอง พร้อมคำตอบตัวอย่าง หรือขอคำแนะนำจาก AI Coach
+  3. **Use it**: ฝึกนำประโยคไปประยุกต์ตอบคำถามเกี่ยวกับตัวเอง พร้อมตัวอย่างสำหรับ Self-check
   4. **Review**: ทบทวนวลีสำคัญในบทเรียนผ่าน Flashcard แบบนึกก่อนเปิดเฉลย
   5. **Summary**: สรุปเวลาที่ฝึกจริง (ระบบหยุดนับเวลาอัตโนมัติเมื่อซ่อนแท็บ) และบันทึกวลีเข้าคลังอัตโนมัติ
 - **คลังสื่อเรียนรู้ที่แนบได้เอง (Custom Learning Resources)**:
@@ -21,10 +21,10 @@ Daily English ถูกออกแบบมาเพื่อตอบโจท
   - โหมด **Shadowing** ฝึกฟังและอัดเสียงพูดตามประโยคสำคัญของสื่อนั้น
   - **Bulk Text & Subtitle Parser**: วางเนื้อเพลง ซับไตเติล (SRT) หรือประโยคสองภาษา (EN/TH) พร้อมกันได้ในคลิกเดียว
   - ปุ่ม 1-Click บันทึกวลีเด่นเข้าคลังคำศัพท์ทันที
-- **ผู้ช่วย AI Coach (Bring Your Own Key — OpenRouter)**:
-  - รองรับการใส่ OpenRouter API Key ของผู้ใช้เองจากหน้า Settings
-  - เก็บ API Key ใน LocalStorage และส่งผ่าน same-origin serverless proxy ไป OpenRouter ด้วย HTTPS เมื่อเรียกใช้ AI โดย proxy ไม่บันทึกคีย์ถาวร แต่คีย์และเนื้อหาจะผ่านระบบโฮสต์และ OpenRouter จึงควรใช้คีย์วงเงินต่ำและปิด paid fallback
-  - ช่วยตรวจประโยค แนะนำสำนวนที่เป็นธรรมชาติแบบเจ้าของภาษา พร้อมคำอธิบายภาษาไทยและเสียงอ่าน TTS
+- **Local Self-check**:
+  - ตัวอย่างคำตอบและแนวทางฝึกทำงานในเครื่อง ไม่ต้องสมัครบริการหรือใส่ API Key
+  - แบบฝึกจากวลีและ Resource ใช้ข้อมูลที่ผู้ใช้บันทึกไว้กับแม่แบบในแอป ไม่มีการส่งข้อมูลไป AI ภายนอก
+  - การแปลคำศัพท์และคำแปล transcript ต้องกรอกเอง; วาง transcript จาก YouTube หรือใช้ bulk parser ได้
 - **Personal Phrase Bank & Spaced Repetition**:
   - คลังคำศัพท์/วลีส่วนตัว เพิ่ม ลบ แก้ไข ฟังเสียง และระบบคำนวณรอบทบทวน (Heuristic Stage 0..5)
   - **Flashcard Review Session**: หน้าต่างทบทวนคำศัพท์ที่ครบกำหนดแบบ Think-before-reveal
@@ -85,7 +85,7 @@ npm run preview
 
 1. **Local Storage Only**: ข้อมูลบันทึกอยู่ใน IndexedDB ของเครื่องและเบราว์เซอร์ปัจจุบัน ไม่มีการเชื่อมต่อคลาวด์หรือซิงค์ข้ามอุปกรณ์ หากต้องการย้ายเครื่องให้ใช้ฟังก์ชัน **Export JSON** ในหน้า Settings
 2. **In-Memory Audio**: ไฟล์เสียงที่บันทึกขณะฝึกบทเรียน (Repeat / Shadowing) จะถูกเก็บไว้ใน Memory ชั่วคราว และจะถูกเคลียร์เมื่อออกจากหน้าหรือรีเฟรชหน้าเว็บ เพื่อความเป็นส่วนตัวและประหยัดพื้นที่จัดเก็บ
-3. **AI Coach (BYOK)**: รองรับ OpenRouter API Key ในหน้า Settings คีย์เก็บใน LocalStorage และส่งผ่าน serverless proxy เฉพาะตอนเรียก AI หากไม่มีคีย์ ระบบจะใช้ Local Example & Self-Check แทนอัตโนมัติ
+3. **Local-only feedback**: ระบบไม่มี AI API หรือ API Key; คำแนะนำเป็นตัวอย่างและ Self-check ไม่ใช่การตรวจ grammar โดย AI
 4. **Voice Synthesizer**: คุณภาพและสำเนียงเสียงอ่านภาษาอังกฤษขึ้นอยู่กับเสียงที่ติดตั้งอยู่ในระบบปฏิบัติการและเบราว์เซอร์ของผู้ใช้
 
 ---
@@ -100,4 +100,4 @@ npm run preview
 - [docs/DATA-MODEL.md](docs/DATA-MODEL.md) — โครงสร้างข้อมูล IndexedDB และอัลกอริทึม Spaced Repetition
 - [docs/TASKS.md](docs/TASKS.md) — Checklist สถานะการพัฒนางานตาม Phase และ Future Roadmap
 - [docs/TEST-PLAN.md](docs/TEST-PLAN.md) — แผนการทดสอบและเกณฑ์การตรวจรับ (Acceptance Criteria)
-- [docs/AI-INTEGRATION.md](docs/AI-INTEGRATION.md) — ขอบเขต AI Tutor และข้อกำหนดความปลอดภัย
+- [docs/AI-INTEGRATION.md](docs/AI-INTEGRATION.md) — ขอบเขต local feedback และความเป็นส่วนตัว

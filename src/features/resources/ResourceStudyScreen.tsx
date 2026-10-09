@@ -4,7 +4,6 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Toast } from '../../components/ui/Toast';
-import { Modal } from '../../components/ui/Modal';
 import { Phrase, LearningResource, ResourceSentence, TargetPhrase } from '../../types';
 import { phraseRepo, resourceRepo } from '../../lib/storage/repositories';
 import { speechService } from '../../lib/audio/speech';
@@ -14,8 +13,8 @@ import { evaluatePronunciation, PronunciationScoreResult } from '../../lib/audio
 import { PronunciationFeedbackCard } from '../../components/audio/PronunciationFeedbackCard';
 import { createNewPhrase } from '../../lib/review/scheduler';
 import { formatDurationThai } from '../../lib/review/dateUtils';
-import { getResourceTypeLabel } from '../../lib/resources/mediaUtils';
-import { getActiveTutorProvider, getStoredGeminiApiKey, setStoredGeminiApiKey } from '../../lib/ai/provider';
+import { getResourceTypeLabel, timestampToSeconds } from '../../lib/resources/mediaUtils';
+import { getActiveTutorProvider } from '../../lib/ai/provider';
 import { TextFeedbackResponse } from '../../lib/ai/types';
 import { AICoachFeedbackCard } from '../../components/ai/AICoachFeedbackCard';
 import {
@@ -29,14 +28,12 @@ import {
   MessageSquare,
   Clock,
   Sparkles,
-  Key,
   Play,
 } from 'lucide-react';
 import { GenerateLessonModal } from '../../components/resources/GenerateLessonModal';
 import { VideoTranscribeModal } from '../../components/resources/VideoTranscribeModal';
 import { SaveWordModal } from '../../components/resources/SaveWordModal';
 import { PhraseReviewModal } from '../phrases/PhraseReviewModal';
-import { timestampToSeconds } from '../../lib/resources/videoTranscriber';
 
 export interface ResourceStudyScreenProps {
   resource: LearningResource;
@@ -206,8 +203,6 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
   const [isCompleted, setIsCompleted] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<TextFeedbackResponse | null>(null);
   const [isLoadingAI, setIsLoadingAI] = useState<boolean>(false);
-  const [isNoKeyModalOpen, setIsNoKeyModalOpen] = useState<boolean>(false);
-  const [quickApiKey, setQuickApiKey] = useState<string>('');
 
   // 1. Timer that pauses when tab is hidden
   useEffect(() => {
@@ -332,12 +327,6 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
     const trimmed = reflectionText.trim();
     if (!trimmed) return;
 
-    const key = getStoredGeminiApiKey();
-    if (!key) {
-      setIsNoKeyModalOpen(true);
-      return;
-    }
-
     setIsLoadingAI(true);
     try {
       const provider = getActiveTutorProvider();
@@ -350,17 +339,6 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
       setAiFeedback(feedback);
     } finally {
       setIsLoadingAI(false);
-    }
-  };
-
-  const handleSaveQuickKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (quickApiKey.trim()) {
-      setStoredGeminiApiKey(quickApiKey.trim());
-      setIsNoKeyModalOpen(false);
-      setTimeout(() => {
-        handleAskAICoach();
-      }, 100);
     }
   };
 
@@ -788,7 +766,6 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
                       onPlayRecorded={handlePlayRecorded}
                       isPlayingRecorded={recordState === 'playing'}
                       onRetry={handleResetRecord}
-                      onRequestKeySetup={() => setIsNoKeyModalOpen(true)}
                     />
                   </div>
                 )}
@@ -943,7 +920,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
             disabled={isLoadingAI || !reflectionText.trim()}
             onClick={handleAskAICoach}
           >
-            <Sparkles size={15} /> {isLoadingAI ? 'AI Coach กำลังวิเคราะห์...' : 'ให้ AI Coach ช่วยตรวจความคิดเห็น'}
+            <Sparkles size={15} /> {isLoadingAI ? 'กำลังเตรียมตัวอย่าง...' : 'เทียบความคิดเห็นกับตัวอย่าง'}
           </Button>
           <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
             * ตรวจและแนะนำสำนวนภาษาอังกฤษให้ดูเป็นธรรมชาติ
@@ -954,7 +931,7 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
           <div style={{ marginBottom: 'var(--space-md)' }}>
             <AICoachFeedbackCard
               feedback={aiFeedback}
-              title="คำแนะนำความคิดเห็นจาก AI Coach"
+              title="ตัวอย่างสำหรับเทียบความคิดเห็น"
               onDismiss={() => setAiFeedback(null)}
             />
           </div>
@@ -967,75 +944,6 @@ export const ResourceStudyScreen: React.FC<ResourceStudyScreenProps> = ({
         </div>
       </Card>
 
-      {/* Quick API Key Modal */}
-      <Modal
-        isOpen={isNoKeyModalOpen}
-        onClose={() => setIsNoKeyModalOpen(false)}
-        title="เปิดใช้งานผู้ช่วย AI Coach (OpenRouter)"
-        description="ใส่ OpenRouter API Key ของคุณเพื่อเริ่มใช้งานระบบตรวจประโยคและแนะนำสำนวนภาษาอังกฤษ"
-      >
-        <form onSubmit={handleSaveQuickKey} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          <div
-            style={{
-              padding: '10px 12px',
-              backgroundColor: '#F8F9F5',
-              borderRadius: '8px',
-              fontSize: '12px',
-              color: 'var(--color-text-muted)',
-              lineHeight: 1.5,
-            }}
-          >
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งผ่าน serverless proxy ไป OpenRouter เมื่อใช้ AI; proxy ไม่บันทึกคีย์ถาวร
-            <div style={{ marginTop: '4px' }}>
-              ✨ รับ API Key ฟรีได้ที่{' '}
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}
-              >
-                OpenRouter Keys
-              </a>
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="resource-quick-key"
-              style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
-            >
-              OpenRouter API Key:
-            </label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Key size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '12px' }} />
-              <input
-                id="resource-quick-key"
-                type="password"
-                value={quickApiKey}
-                onChange={(e) => setQuickApiKey(e.target.value)}
-                placeholder="sk-or-v1-..."
-                style={{
-                  width: '100%',
-                  padding: '10px 14px 10px 38px',
-                  borderRadius: 'var(--radius-control)',
-                  border: '1px solid var(--color-border)',
-                  outline: 'none',
-                  fontSize: 'var(--font-size-sm)',
-                }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: 'var(--space-sm)' }}>
-            <Button variant="outline" type="button" onClick={() => setIsNoKeyModalOpen(false)}>
-              ยกเลิก
-            </Button>
-            <Button variant="primary" type="submit" disabled={!quickApiKey.trim()}>
-              บันทึกและให้ AI ตรวจ
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
       {/* Completion Banner */}
       {isCompleted && (

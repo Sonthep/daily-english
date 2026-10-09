@@ -2,7 +2,7 @@
 
 ## 1. ภาพรวมสถาปัตยกรรม (High-Level Architecture)
 
-Daily English ใช้แนวคิด **Local-First Single Page Application (SPA)** ข้อมูลการเรียนหลักอยู่ในเบราว์เซอร์และไม่ต้องมีบัญชีผู้ใช้ ส่วนฟีเจอร์ AI ที่ผู้ใช้เลือกเปิดจะเรียก OpenRouter ผ่าน serverless proxy ขนาดเล็กแบบไม่จัดเก็บข้อมูลถาวร เพื่อหลีกเลี่ยงปัญหา CORS และควบคุมเส้นทาง API
+Daily English ใช้แนวคิด **Local-First Single Page Application (SPA)** ข้อมูลการเรียนหลักอยู่ในเบราว์เซอร์และไม่ต้องมีบัญชีผู้ใช้ ระบบ feedback ใช้ตัวอย่างและ Self-check ในเครื่อง ไม่มี AI API, API Key หรือ serverless proxy
 
 ```mermaid
 graph TD
@@ -23,8 +23,6 @@ graph TD
     subgraph Implementation_Layer ["Implementation Layer"]
         IDB_Impl["IndexedDB Implementation (via idb library)"]
         Example_Tutor["ExampleTutorProvider (Phase 1 Local Mock)"]
-        OpenRouter_Tutor["OpenRouter BYOK Provider"]
-        AI_Proxy["Same-Origin Serverless Proxy"]
         Web_Speech["Web SpeechSynthesis API"]
         Media_Recorder["Web MediaRecorder API (In-Memory Blobs)"]
     end
@@ -39,9 +37,7 @@ graph TD
 
     Repo_Interfaces --> IDB_Impl
     Tutor_Interface --> Example_Tutor
-    Tutor_Interface --> OpenRouter_Tutor
-    OpenRouter_Tutor --> AI_Proxy
-    AI_Proxy --> OpenRouter["OpenRouter API"]
+    Tutor_Interface --> Example_Tutor
     Audio_Services --> Web_Speech
     Audio_Services --> Media_Recorder
 ```
@@ -136,8 +132,8 @@ export interface ITutorProvider {
   getFeedback(questionEn: string, userAnswer: string): Promise<TextFeedbackResponse>;
 }
 ```
-- เมื่อไม่มี API Key หรือคำขอ AI ล้มเหลว จะใช้ local example/self-check และระบุ `source: 'example'` ชัดเจน
-- เมื่อผู้ใช้เปิด OpenRouter BYOK จะใช้ remote provider ผ่าน `/api/openrouter/chat/completions`; serverless proxy ส่งต่อคำขอโดยไม่บันทึกคีย์หรือเนื้อหาลงฐานข้อมูลของแอป
+- ทุกคำขอ feedback ใช้ local example/self-check และระบุ `source: 'example'` ชัดเจน
+- ข้อมูลคำตอบ วลี และ Resource ไม่ถูกส่งไปยัง AI API ภายนอก
 
 ### 3.3 Audio Engine & Resource Cleanup
 - **Web SpeechSynthesis**: จัดการเลือกเสียงภาษาอังกฤษ (en-US / en-GB) ที่ดีที่สุดในเครื่อง ปรับ playback rate (0.75x, 1x) และแจ้งเตือน Fallback กรณีเครื่องไม่มีเสียง

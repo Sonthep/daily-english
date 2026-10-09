@@ -1,4 +1,4 @@
-export type LessonCategory = 'Design & Marketing' | 'Daily Life' | 'Gaming' | 'Custom AI';
+export type LessonCategory = 'Design & Marketing' | 'Daily Life' | 'Gaming' | 'Custom' | 'Custom AI';
 
 export type LessonStep = 'listen' | 'repeat' | 'use_it' | 'review' | 'summary';
 
@@ -48,6 +48,7 @@ export interface Lesson {
   targetPhrases: TargetPhrase[];
   createdAt: string;
   isAiGenerated?: boolean;
+  isCustom?: boolean;
   sourceResourceId?: string;
 }
 

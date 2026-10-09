@@ -6,23 +6,12 @@ import { Modal } from '../../components/ui/Modal';
 import { Profile, DatabaseExport } from '../../types';
 import { profileRepo, storageService } from '../../lib/storage/repositories';
 import {
-  getStoredGeminiApiKey,
-  setStoredGeminiApiKey,
-  clearStoredGeminiApiKey,
-  testGeminiApiKey,
-} from '../../lib/ai/geminiProvider';
-import {
   Download,
   Upload,
   AlertTriangle,
   Info,
   Check,
   RotateCcw,
-  Sparkles,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  Key,
   Smartphone,
   Wifi,
   Volume2,
@@ -42,13 +31,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
   const [confidence, setConfidence] = useState<Profile['confidence']>('beginner');
   const [timezone, setTimezone] = useState('Asia/Bangkok');
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
-
-  // AI Coach (BYOK) State
-  const [geminiKey, setGeminiKey] = useState<string>('');
-  const [showGeminiKey, setShowGeminiKey] = useState<boolean>(false);
-  const [isTestingKey, setIsTestingKey] = useState<boolean>(false);
-  const [keyTestResult, setKeyTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [keySaveNotice, setKeySaveNotice] = useState<boolean>(false);
 
   // Import State & Confirmation
   const [pendingImportData, setPendingImportData] = useState<DatabaseExport | null>(null);
@@ -111,7 +93,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
       setDailyMinutes(p.dailyMinutes || 5);
       setConfidence(p.confidence);
       setTimezone(p.timezone || 'Asia/Bangkok');
-      setGeminiKey(getStoredGeminiApiKey() || '');
     };
     loadProfile();
   }, []);
@@ -146,30 +127,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
     setTimeout(() => {
       setSaveSuccessNotice(false);
     }, 3000);
-  };
-
-  // AI Coach (BYOK) Handlers
-  const handleSaveGeminiKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    setStoredGeminiApiKey(geminiKey);
-    setKeySaveNotice(true);
-    setKeyTestResult(null);
-    setTimeout(() => setKeySaveNotice(false), 3000);
-  };
-
-  const handleClearGeminiKey = () => {
-    clearStoredGeminiApiKey();
-    setGeminiKey('');
-    setKeyTestResult(null);
-    setKeySaveNotice(false);
-  };
-
-  const handleTestGeminiKey = async () => {
-    setIsTestingKey(true);
-    setKeyTestResult(null);
-    const result = await testGeminiApiKey(geminiKey);
-    setIsTestingKey(false);
-    setKeyTestResult(result);
   };
 
   // Export JSON
@@ -231,7 +188,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
   const handleConfirmReset = async () => {
     if (resetConfirmationText !== 'RESET') return;
     await storageService.resetDatabase();
-    clearStoredGeminiApiKey();
     clearStoredVoicePreferences();
     setIsResetModalOpen(false);
     onProfileUpdated();
@@ -508,175 +464,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
         </form>
       </Card>
 
-      {/* AI Coach (BYOK) Card */}
-      <Card padding="lg">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '8px',
-                backgroundColor: '#E8F3EE',
-                color: 'var(--color-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <h2 style={{ fontSize: 'var(--font-size-lg)', color: 'var(--color-text)', margin: 0 }}>
-                ผู้ช่วย AI Coach (OpenRouter BYOK)
-              </h2>
-              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: 0 }}>
-                ช่วยตรวจประโยคภาษาอังกฤษ แนะนำสำนวนที่เป็นธรรมชาติ และอธิบายไวยากรณ์สั้นๆ
-              </p>
-            </div>
-          </div>
-
-          <Badge variant={getStoredGeminiApiKey() ? 'success' : 'neutral'}>
-            {getStoredGeminiApiKey() ? 'เปิดใช้งานแล้ว (Active)' : 'ใช้งานในเครื่องเท่านั้น (Local-Only)'}
-          </Badge>
-        </div>
-
-        {/* Privacy Note & Free Link */}
-        <div
-          style={{
-            padding: '12px 14px',
-            borderRadius: '8px',
-            backgroundColor: '#F8F9F5',
-            border: '1px solid var(--color-border)',
-            fontSize: 'var(--font-size-xs)',
-            color: 'var(--color-text-muted)',
-            lineHeight: 1.6,
-            marginBottom: 'var(--space-md)',
-          }}
-        >
-          <div>
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และเมื่อใช้ AI จะถูกส่งผ่าน serverless proxy ของแอปไปยัง OpenRouter ด้วย HTTPS ตัวแอปไม่บันทึกคีย์บนเซิร์ฟเวอร์ แต่ผู้ให้บริการโฮสต์และ OpenRouter อาจเห็นข้อมูลระหว่างประมวลผล จึงควรใช้คีย์ที่กำหนดวงเงินต่ำและปิด paid fallback
-          </div>
-          <div style={{ marginTop: '4px' }}>
-            ✨ <strong>ใช้งานฟรี:</strong> คุณสามารถสมัครรับ API Key ฟรีได้จาก{' '}
-            <a
-              href="https://openrouter.ai/keys"
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-            >
-              OpenRouter Keys <ExternalLink size={12} />
-            </a>
-          </div>
-        </div>
-
-        <form onSubmit={handleSaveGeminiKey} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          <div>
-            <label
-              htmlFor="gemini-key-input"
-              style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
-            >
-              OpenRouter API Key:
-            </label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Key
-                size={16}
-                color="var(--color-text-muted)"
-                style={{ position: 'absolute', left: '12px' }}
-              />
-              <input
-                id="gemini-key-input"
-                type={showGeminiKey ? 'text' : 'password'}
-                value={geminiKey}
-                onChange={(e) => setGeminiKey(e.target.value)}
-                placeholder="sk-or-v1-..."
-                style={{
-                  width: '100%',
-                  padding: '10px 42px 10px 38px',
-                  borderRadius: 'var(--radius-control)',
-                  border: '1px solid var(--color-border)',
-                  outline: 'none',
-                  fontSize: 'var(--font-size-sm)',
-                  fontFamily: showGeminiKey ? 'inherit' : 'monospace',
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowGeminiKey(!showGeminiKey)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-text-muted)',
-                  cursor: 'pointer',
-                  padding: '4px',
-                }}
-                title={showGeminiKey ? 'ซ่อนรหัส' : 'แสดงรหัส'}
-              >
-                {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Key test feedback */}
-          {keyTestResult && (
-            <div
-              style={{
-                padding: '10px 14px',
-                borderRadius: '6px',
-                backgroundColor: keyTestResult.success ? '#E8F5E9' : 'var(--color-error-soft)',
-                color: keyTestResult.success ? 'var(--color-primary)' : 'var(--color-error)',
-                fontSize: 'var(--font-size-xs)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              {keyTestResult.success ? <Check size={16} /> : <AlertTriangle size={16} />}
-              <span>{keyTestResult.message}</span>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!geminiKey.trim() || isTestingKey}
-                onClick={handleTestGeminiKey}
-              >
-                {isTestingKey ? 'กำลังทดสอบ...' : 'ทดสอบการเชื่อมต่อ'}
-              </Button>
-
-              {getStoredGeminiApiKey() && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearGeminiKey}
-                  style={{ color: 'var(--color-error)', fontSize: '12px' }}
-                >
-                  ลบคีย์
-                </Button>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {keySaveNotice && (
-                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Check size={14} /> บันทึก API Key สำเร็จ
-                </span>
-              )}
-              <Button type="submit" variant="primary" size="sm">
-                บันทึกคีย์
-              </Button>
-            </div>
-          </div>
-        </form>
-      </Card>
-
       {/* PWA & Offline Support Card */}
       <Card padding="lg">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
@@ -772,7 +559,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onProfileUpdated
           </h2>
         </div>
         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-md)' }}>
-          การกระทำนี้จะล้างโปรไฟล์ ประวัติการฝึก บทเรียน/สื่อที่สร้าง คลังคำศัพท์ API Key และการตั้งค่าเสียง แล้วเริ่มต้นใหม่
+          การกระทำนี้จะล้างโปรไฟล์ ประวัติการฝึก บทเรียน/สื่อที่สร้าง คลังคำศัพท์ และการตั้งค่าเสียง แล้วเริ่มต้นใหม่
         </p>
 
         <Button

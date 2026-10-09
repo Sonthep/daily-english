@@ -121,6 +121,14 @@
 - [x] ปฏิเสธ fallback เมื่อไม่มีคีย์หรือผล AI ไม่ครบ และเพิ่มตัวเลือกบันทึกหรือเริ่มฝึกทันที
 - [x] ลด latency ด้วย OpenRouter free Qwen/DeepSeek routing, no-paid-fallback และ retry แบบจำกัด
 
+## Local-only product mode — 2026-10-09
+
+- [x] Remove API-key setup and OpenRouter proxy/client; clear keys saved by earlier versions
+- [x] Keep answer feedback and pronunciation tips as clearly labeled local examples/self-checks
+- [x] Generate Resource and vocabulary lessons from local templates; parse pasted transcripts locally
+- [x] Preserve backup/import/delete behavior for locally generated custom lessons
+- [x] Replace API-dependent tests with local-only and no-network regression tests
+
 ## Resource deletion reliability — 2026-10-09
 
 - [x] Seed Resources only when the IndexedDB resources store is first created, so deleting the last Resource persists across reads and reloads
@@ -133,5 +141,4 @@
 - [x] **Speech-to-Text & Word Match**: ใช้ Web Speech API ถอดเสียงที่ผู้ใช้อัดเทียบกับประโยคต้นฉบับ คำนวณ Accuracy Score และไฮไลต์คำชัดเจน/ใกล้เคียง/ตกหล่น พร้อม AI Pronunciation Evaluation
 - [x] **PWA (Progressive Web App)**: สร้าง Web Manifest และ Service Worker ให้ติดตั้งลงในมือถือ/เดสก์ท็อปและใช้งานแบบ Offline ได้ พร้อมปุ่มแจ้งเตือนการติดตั้ง
 - [x] **AI Lesson Generator from Resources**: สกัดเนื้อหาจากคลิป YouTube หรือเนื้อเพลงที่ผู้ใช้แนบให้กลายเป็นบทเรียนฝึก 5 ขั้นตอนอัตโนมัติ พร้อมบันทึกเข้าสู่คลังบทเรียนและเริ่มเรียนได้ทันที
-- [ ] **Multi-Provider BYOK**: รองรับ OpenAI (GPT-4o-mini), Anthropic (Claude 3.5 Haiku) และ Local Ollama เพิ่มเติม
 - [ ] **Cloud Sync (Optional Phase 3)**: ระบบ Sync ข้อมูลข้ามอุปกรณ์ผ่าน Secure Backend Proxy สำหรับผู้ใช้ที่ต้องการใช้งานหลายเครื่องพร้อมกัน

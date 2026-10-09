@@ -48,7 +48,7 @@ export interface Lesson {
   id: string;                         // เช่น 'design-feedback'
   titleTh: string;                    // ชื่อภาษาไทย
   titleEn: string;                    // ชื่อภาษาอังกฤษ
-  category: 'Design & Marketing' | 'Daily Life' | 'Gaming' | 'Custom AI';
+  category: 'Design & Marketing' | 'Daily Life' | 'Gaming' | 'Custom' | 'Custom AI';
   objectiveTh: string;                // สิ่งที่จะทำได้หลังฝึก
   sentences: LessonSentence[];        // ประโยคสำหรับ Listen & Repeat
   prompts: LessonPrompt[];            // คำถามสำหรับ Use it

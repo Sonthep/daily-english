@@ -3,6 +3,8 @@ import {
   extractYouTubeId,
   buildYouTubeEmbedUrl,
   getResourceTypeLabel,
+  timestampToSeconds,
+  secondsToTimestamp,
 } from '../src/lib/resources/mediaUtils';
 import { SEED_RESOURCES } from '../src/data/seedResources';
 
@@ -31,6 +33,13 @@ describe('Custom Learning Resources & Media Utilities', () => {
   it('builds privacy-friendly YouTube embed URL', () => {
     const embed = buildYouTubeEmbedUrl('Ii4EeIIJrIY');
     expect(embed).toBe('https://www.youtube-nocookie.com/embed/Ii4EeIIJrIY?rel=0');
+  });
+
+  it('converts transcript timestamps without an external service', () => {
+    expect(timestampToSeconds('01:24')).toBe(84);
+    expect(timestampToSeconds('01:05:30')).toBe(3930);
+    expect(secondsToTimestamp(84)).toBe('01:24');
+    expect(secondsToTimestamp(3930)).toBe('1:05:30');
   });
 
   it('returns human-readable Thai labels for resource types', () => {

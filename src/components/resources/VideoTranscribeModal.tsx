@@ -3,25 +3,15 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { ResourceSentence, TargetPhrase } from '../../types';
+import { parseBulkTextToSentences } from '../../lib/resources/bulkParser';
+import { extractYouTubeId, secondsToTimestamp } from '../../lib/resources/mediaUtils';
 import {
-  parseYouTubeTranscript,
-  transcribeVideoWithGemini,
-  translateSentencesWithGemini,
-  secondsToTimestamp,
-} from '../../lib/resources/videoTranscriber';
-import { getStoredGeminiApiKey, setStoredGeminiApiKey } from '../../lib/ai/geminiProvider';
-import { extractYouTubeId } from '../../lib/resources/mediaUtils';
-import {
-  Sparkles,
   FileText,
   Mic,
   ExternalLink,
   Trash2,
   Check,
-  AlertCircle,
   Clock,
-  Key,
-  RefreshCw,
 } from 'lucide-react';
 
 export interface VideoTranscribeModalProps {
@@ -38,18 +28,17 @@ export interface VideoTranscribeModalProps {
   ) => void;
 }
 
-type TranscribeTab = 'ai' | 'youtube_transcript' | 'live_mic';
+type TranscribeTab = 'youtube_transcript' | 'live_mic';
 
 export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
   isOpen,
   onClose,
   videoTitle,
   videoUrl,
-  videoNotes,
   existingSentencesCount,
   onApplySentences,
 }) => {
-  const [activeTab, setActiveTab] = useState<TranscribeTab>('ai');
+  const [activeTab, setActiveTab] = useState<TranscribeTab>('youtube_transcript');
 
   // Preview sentences generated
   const [previewSentences, setPreviewSentences] = useState<ResourceSentence[]>([]);
@@ -58,20 +47,10 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
     existingSentencesCount > 0 ? 'replace' : 'replace'
   );
 
-  // Tab 1: AI Transcribe State
-  const [sentenceCount, setSentenceCount] = useState<number>(8);
-  const [focusStyle, setFocusStyle] = useState<'practical' | 'beginner' | 'full'>('practical');
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [hasApiKey, setHasApiKey] = useState(false);
-
-  // Tab 2: YouTube Transcript Paste State
+  // YouTube transcript paste state
   const [transcriptText, setTranscriptText] = useState('');
-  const [isTranslating, setIsTranslating] = useState(false);
-  const [translateSuccess, setTranslateSuccess] = useState(false);
 
-  // Tab 3: Live Audio Transcribe State
+  // Live audio transcribe state
   const [isListeningLive, setIsListeningLive] = useState(false);
   const [liveInterim, setLiveInterim] = useState('');
   const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0);
@@ -80,10 +59,6 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const key = getStoredGeminiApiKey();
-      setHasApiKey(Boolean(key));
-      setApiKeyInput(key || '');
-      setAiError(null);
       setPreviewSentences([]);
       setPreviewPhrases([]);
       setTranscriptText('');
@@ -104,71 +79,16 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
     };
   }, []);
 
-  const handleSaveApiKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (apiKeyInput.trim()) {
-      setStoredGeminiApiKey(apiKeyInput.trim());
-      setHasApiKey(true);
-      setAiError(null);
-    }
-  };
-
-  // 1. Run AI Transcription
-  const handleRunAiTranscription = async () => {
-    setIsAiLoading(true);
-    setAiError(null);
-    try {
-      const result = await transcribeVideoWithGemini({
-        videoUrl,
-        videoTitle,
-        notes: videoNotes,
-        count: sentenceCount,
-        focus: focusStyle,
-      });
-
-      if (result.sentences.length === 0) {
-        setAiError('AI ไม่พบประโยคพูดในคลิปนี้ กรุณาลองใหม่อีกครั้งหรือใช้วิธีวาง Transcript');
-        return;
-      }
-
-      setPreviewSentences(result.sentences);
-      if (result.targetPhrases) {
-        setPreviewPhrases(result.targetPhrases);
-      }
-    } catch (err: any) {
-      setAiError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อกับ OpenRouter');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-  // 2. Parse YouTube Transcript
+  // Parse YouTube transcript
   const handleParseTranscript = () => {
     if (!transcriptText.trim()) return;
-    const parsed = parseYouTubeTranscript(transcriptText);
+    const parsed = parseBulkTextToSentences(transcriptText);
     if (parsed.length > 0) {
       setPreviewSentences(parsed);
-      setTranslateSuccess(false);
     }
   };
 
-  // Translate parsed sentences via AI
-  const handleTranslateParsedSentences = async () => {
-    if (previewSentences.length === 0) return;
-    setIsTranslating(true);
-    try {
-      const translated = await translateSentencesWithGemini(previewSentences);
-      setPreviewSentences(translated);
-      setTranslateSuccess(true);
-      setTimeout(() => setTranslateSuccess(false), 4000);
-    } catch (err: any) {
-      alert(err.message || 'ไม่สามารถแปลภาษาด้วย AI ได้ กรุณาตรวจสอบ API Key');
-    } finally {
-      setIsTranslating(false);
-    }
-  };
-
-  // 3. Live Speech Recognition
+  // Live Speech Recognition
   const handleToggleLiveListening = () => {
     if (isListeningLive) {
       // Stop
@@ -318,27 +238,6 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
           }}
         >
           <button
-            onClick={() => setActiveTab('ai')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 16px',
-              border: 'none',
-              borderBottom: activeTab === 'ai' ? '3px solid var(--color-primary)' : '3px solid transparent',
-              backgroundColor: 'transparent',
-              color: activeTab === 'ai' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-              fontWeight: activeTab === 'ai' ? 700 : 500,
-              fontSize: 'var(--font-size-sm)',
-              cursor: 'pointer',
-              marginBottom: '-2px',
-            }}
-          >
-            <Sparkles size={16} />
-            <span>ถอดด้วย AI (OpenRouter)</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('youtube_transcript')}
             style={{
               display: 'flex',
@@ -388,170 +287,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
           </button>
         </div>
 
-        {/* TAB 1: AI Transcribe (OpenRouter) */}
-        {activeTab === 'ai' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-            {!hasApiKey ? (
-              <div
-                style={{
-                  padding: '14px',
-                  borderRadius: 'var(--radius-control)',
-                  backgroundColor: '#FFF9F2',
-                  border: '1px solid #F5DEB3',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9A5B18', fontWeight: 600, fontSize: '13px' }}>
-                  <Key size={16} />
-                  <span>กรอก OpenRouter API Key เพื่อถอดประโยคอัตโนมัติด้วย AI</span>
-                </div>
-                <p style={{ fontSize: '12px', color: '#7D4F1E', margin: 0 }}>
-                  ใช้โมเดลฟรีผ่าน OpenRouter ได้เมื่อมีโควตา รับคีย์ได้จากหน้า OpenRouter Keys
-                </p>
-                <form onSubmit={handleSaveApiKey} style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder="วาง sk-or-v1-... ที่นี่"
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-control)',
-                      border: '1px solid var(--color-border)',
-                      fontSize: '13px',
-                    }}
-                  />
-                  <Button type="submit" size="sm" variant="primary">
-                    บันทึกคีย์
-                  </Button>
-                </form>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  backgroundColor: '#F0F9F4',
-                  fontSize: '12px',
-                  color: 'var(--color-primary)',
-                  fontWeight: 500,
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Check size={14} /> OpenRouter พร้อมใช้งาน
-                </span>
-                <button
-                  onClick={() => {
-                    setStoredGeminiApiKey('');
-                    setHasApiKey(false);
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-text-muted)',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  เปลี่ยนคีย์
-                </button>
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text)', display: 'block', marginBottom: '4px' }}>
-                  จำนวนประโยคที่ต้องการถอด
-                </label>
-                <select
-                  value={sentenceCount}
-                  onChange={(e) => setSentenceCount(Number(e.target.value))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: 'var(--radius-control)',
-                    border: '1px solid var(--color-border)',
-                    fontSize: '13px',
-                    backgroundColor: '#FFFFFF',
-                  }}
-                >
-                  <option value={5}>5 ประโยค (เน้นหัวข้อหลัก สั้นกระชับ)</option>
-                  <option value={8}>8 ประโยค (แนะนำ - พอดีสำหรับ 1 รอบฝึก)</option>
-                  <option value={12}>12 ประโยค (ละเอียด ครอบคลุมทั้งคลิป)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text)', display: 'block', marginBottom: '4px' }}>
-                  รูปแบบประโยค
-                </label>
-                <select
-                  value={focusStyle}
-                  onChange={(e) => setFocusStyle(e.target.value as any)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: 'var(--radius-control)',
-                    border: '1px solid var(--color-border)',
-                    fontSize: '13px',
-                    backgroundColor: '#FFFFFF',
-                  }}
-                >
-                  <option value="practical">ประโยคใช้จริงและออกเสียงเป็นธรรมชาติ (Practical)</option>
-                  <option value="beginner">ประโยคสั้นเข้าใจง่าย (Beginner Friendly)</option>
-                  <option value="full">ถอดตามลำดับบทพูดในคลิป (Sequential)</option>
-                </select>
-              </div>
-            </div>
-
-            {aiError && (
-              <div
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-control)',
-                  backgroundColor: '#FEF2F2',
-                  border: '1px solid #FCA5A5',
-                  color: '#991B1B',
-                  fontSize: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <AlertCircle size={15} />
-                <span>{aiError}</span>
-              </div>
-            )}
-
-            <Button
-              variant="primary"
-              onClick={handleRunAiTranscription}
-              disabled={isAiLoading || !hasApiKey}
-              style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
-            >
-              {isAiLoading ? (
-                <>
-                  <RefreshCw size={16} className="animate-spin" />
-                  <span>AI กำลังวิเคราะห์คลิปและถอดบทพูด...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} />
-                  <span>เริ่มถอดภาษาอังกฤษด้วย AI</span>
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {/* TAB 2: YouTube Transcript Paste */}
+        {/* YouTube Transcript Paste */}
         {activeTab === 'youtube_transcript' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
             <div
@@ -566,7 +302,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
               }}
             >
               <div style={{ fontWeight: 700, color: 'var(--color-primary)', marginBottom: '4px' }}>
-                💡 วิธีคัดลอก Transcript จาก YouTube ใน 3 คลิก (ไม่ต้องใช้ AI Key):
+                💡 วิธีคัดลอก Transcript จาก YouTube:
               </div>
               <ol style={{ margin: '0 0 0 16px', padding: 0 }}>
                 <li>เปิดคลิปใน YouTube (คลิก "เปิดคลิปใน YouTube" ด้านบน)</li>
@@ -601,27 +337,6 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
                 <span>จัดกลุ่มเป็นประโยคอัตโนมัติ</span>
               </Button>
 
-              {previewSentences.length > 0 && hasApiKey && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleTranslateParsedSentences}
-                  disabled={isTranslating}
-                  style={{ color: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}
-                >
-                  {isTranslating ? (
-                    <>
-                      <RefreshCw size={14} className="animate-spin" />
-                      <span>กำลังแปลไทยด้วย AI...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={14} />
-                      <span>{translateSuccess ? 'แปลไทยเรียบร้อย!' : 'แปลไทยอัตโนมัติด้วย AI'}</span>
-                    </>
-                  )}
-                </Button>
-              )}
             </div>
           </div>
         )}
@@ -782,7 +497,7 @@ export const VideoTranscribeModal: React.FC<VideoTranscribeModalProps> = ({
                         </div>
                       ) : (
                         <div style={{ fontSize: '11px', color: '#B45309', fontStyle: 'italic', marginTop: '2px' }}>
-                          (ยังไม่มีคำแปลไทย - สามารถกดปุ่มแปลไทยด้วย AI ด้านบน)
+                          (ยังไม่มีคำแปลไทย - เติมคำแปลได้ในฟอร์ม Resource)
                         </div>
                       )}
                     </div>

@@ -23,7 +23,7 @@ import { PronunciationFeedbackCard } from '../../components/audio/PronunciationF
 import { calculateNextReview, createNewPhrase } from '../../lib/review/scheduler';
 import { formatDurationThai } from '../../lib/review/dateUtils';
 import { createSessionProgressSnapshot } from '../../lib/session/sessionSnapshot';
-import { getActiveTutorProvider, getStoredGeminiApiKey, setStoredGeminiApiKey } from '../../lib/ai/provider';
+import { getActiveTutorProvider } from '../../lib/ai/provider';
 import { TextFeedbackResponse } from '../../lib/ai/types';
 import { AICoachFeedbackCard } from '../../components/ai/AICoachFeedbackCard';
 import {
@@ -40,8 +40,6 @@ import {
   Award,
   ChevronRight,
   HelpCircle,
-  Key,
-  ExternalLink,
 } from 'lucide-react';
 
 export interface LessonScreenProps {
@@ -86,8 +84,6 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const [showSampleAnswer, setShowSampleAnswer] = useState<boolean>(false);
   const [aiFeedbacks, setAiFeedbacks] = useState<Record<string, TextFeedbackResponse>>({});
   const [isLoadingAI, setIsLoadingAI] = useState<boolean>(false);
-  const [isNoKeyModalOpen, setIsNoKeyModalOpen] = useState<boolean>(false);
-  const [quickApiKey, setQuickApiKey] = useState<string>('');
 
   // Review State
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
@@ -307,12 +303,6 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     const answer = (userAnswers[currentPrompt.id] || '').trim();
     if (!answer) return;
 
-    const key = getStoredGeminiApiKey();
-    if (!key) {
-      setIsNoKeyModalOpen(true);
-      return;
-    }
-
     setIsLoadingAI(true);
     try {
       const provider = getActiveTutorProvider();
@@ -328,18 +318,6 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       }));
     } finally {
       setIsLoadingAI(false);
-    }
-  };
-
-  const handleSaveQuickKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (quickApiKey.trim()) {
-      setStoredGeminiApiKey(quickApiKey.trim());
-      setIsNoKeyModalOpen(false);
-      // Automatically trigger coach after saving
-      setTimeout(() => {
-        handleAskAICoach();
-      }, 100);
     }
   };
 
@@ -932,7 +910,6 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                   onPlayRecorded={handlePlayRecorded}
                   isPlayingRecorded={recordState === 'playing'}
                   onRetry={handleResetRecord}
-                  onRequestKeySetup={() => setIsNoKeyModalOpen(true)}
                 />
               </div>
             )}
@@ -1085,7 +1062,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                 disabled={isLoadingAI || !(userAnswers[activePrompts[itemIndex]?.id || '']?.trim())}
                 onClick={handleAskAICoach}
               >
-                <Sparkles size={16} /> {isLoadingAI ? 'AI Coach กำลังวิเคราะห์...' : 'ขอคำแนะนำจาก AI Coach'}
+                <Sparkles size={16} /> {isLoadingAI ? 'กำลังเตรียมตัวอย่าง...' : 'เปรียบเทียบกับคำตอบตัวอย่าง'}
               </Button>
 
               {!showSampleAnswer ? (
@@ -1107,7 +1084,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               )}
             </div>
 
-            {/* AI Coach Feedback Card */}
+            {/* Local example feedback */}
             {activePrompts[itemIndex] && aiFeedbacks[activePrompts[itemIndex].id] && (
               <AICoachFeedbackCard
                 feedback={aiFeedbacks[activePrompts[itemIndex].id]}
@@ -1427,75 +1404,6 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
         </div>
       </Modal>
 
-      {/* Quick API Key Modal for AI Coach */}
-      <Modal
-        isOpen={isNoKeyModalOpen}
-        onClose={() => setIsNoKeyModalOpen(false)}
-        title="เปิดใช้งานผู้ช่วย AI Coach (OpenRouter)"
-        description="ใส่ OpenRouter API Key ของคุณเพื่อเริ่มใช้งานระบบตรวจประโยคและแนะนำสำนวนภาษาอังกฤษ"
-      >
-        <form onSubmit={handleSaveQuickKey} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          <div
-            style={{
-              padding: '10px 12px',
-              backgroundColor: '#F8F9F5',
-              borderRadius: '8px',
-              fontSize: '12px',
-              color: 'var(--color-text-muted)',
-              lineHeight: 1.5,
-            }}
-          >
-            🔒 <strong>การจัดเก็บคีย์:</strong> คีย์อยู่ใน LocalStorage และส่งผ่าน serverless proxy ไป OpenRouter เมื่อใช้ AI; proxy ไม่บันทึกคีย์ถาวร
-            <div style={{ marginTop: '4px' }}>
-              ✨ สามารถขอรับ API Key ฟรีได้ที่{' '}
-              <a
-                href="https://openrouter.ai/keys"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-              >
-                OpenRouter Keys <ExternalLink size={12} />
-              </a>
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="quick-openrouter-key"
-              style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}
-            >
-              OpenRouter API Key:
-            </label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Key size={16} color="var(--color-text-muted)" style={{ position: 'absolute', left: '12px' }} />
-              <input
-                id="quick-openrouter-key"
-                type="password"
-                value={quickApiKey}
-                onChange={(e) => setQuickApiKey(e.target.value)}
-                placeholder="sk-or-v1-..."
-                style={{
-                  width: '100%',
-                  padding: '10px 14px 10px 38px',
-                  borderRadius: 'var(--radius-control)',
-                  border: '1px solid var(--color-border)',
-                  outline: 'none',
-                  fontSize: 'var(--font-size-sm)',
-                }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: 'var(--space-sm)' }}>
-            <Button variant="outline" type="button" onClick={() => setIsNoKeyModalOpen(false)}>
-              ไว้ทีหลัง (ใช้ Sample Answer)
-            </Button>
-            <Button variant="primary" type="submit" disabled={!quickApiKey.trim()}>
-              บันทึกและเริ่มใช้ AI Coach
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };

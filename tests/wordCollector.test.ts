@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { lookupWordWithGemini, setStoredGeminiApiKey } from '../src/lib/ai/geminiProvider';
 import { createNewPhrase, calculateNextReview } from '../src/lib/review/scheduler';
 import { phraseRepo } from '../src/lib/storage/repositories';
 
@@ -7,50 +6,6 @@ describe('Word Collector & Flashcard Feature', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
-  });
-
-  describe('lookupWordWithGemini', () => {
-    it('returns empty fallback if word is empty or whitespace', async () => {
-      const res = await lookupWordWithGemini('');
-      expect(res.th).toBe('');
-      expect(res.example).toBe('');
-    });
-
-    it('cleans punctuation around words and falls back gracefully when offline/no mock', async () => {
-      // Mock fetch failure to test graceful fallback
-      setStoredGeminiApiKey('test-api-key');
-      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network offline'));
-      const res = await lookupWordWithGemini('"opportunity!"', 'We must seize every opportunity.');
-      expect(res.th).toBeDefined();
-      expect(res.example).toContain('opportunity');
-    });
-
-    it('parses valid AI JSON response when Gemini returns word details', async () => {
-      setStoredGeminiApiKey('test-api-key');
-      const mockGeminiResponse = {
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              th: 'โอกาส, จังหวะที่เหมาะสม',
-              partOfSpeech: 'noun',
-              phonetic: '/ˌɑː.pɚˈtuː.nə.t̬i/',
-              example: 'This represents a huge opportunity for our team.',
-            }),
-          },
-        }],
-      };
-
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockGeminiResponse,
-      } as unknown as Response);
-
-      const res = await lookupWordWithGemini('opportunity', 'This represents a huge opportunity for our team.');
-      expect(res.th).toBe('โอกาส, จังหวะที่เหมาะสม');
-      expect(res.partOfSpeech).toBe('noun');
-      expect(res.phonetic).toBe('/ˌɑː.pɚˈtuː.nə.t̬i/');
-      expect(res.example).toBe('This represents a huge opportunity for our team.');
-    });
   });
 
   describe('Flashcard creation and Spaced Repetition integration', () => {

@@ -16,7 +16,6 @@ import { PronunciationScoreResult, EvaluatedWordToken } from '../../lib/audio/pr
 import { PronunciationCoachingResponse } from '../../lib/ai/types';
 import { getActivePronunciationProvider } from '../../lib/ai/provider';
 import { speechService } from '../../lib/audio/speech';
-import { getStoredGeminiApiKey } from '../../lib/ai/geminiProvider';
 
 interface PronunciationFeedbackCardProps {
   result: PronunciationScoreResult;
@@ -24,7 +23,6 @@ interface PronunciationFeedbackCardProps {
   onPlayRecorded?: () => void;
   isPlayingRecorded?: boolean;
   onRetry?: () => void;
-  onRequestKeySetup?: () => void;
 }
 
 export const PronunciationFeedbackCard: React.FC<PronunciationFeedbackCardProps> = ({
@@ -33,7 +31,6 @@ export const PronunciationFeedbackCard: React.FC<PronunciationFeedbackCardProps>
   onPlayRecorded,
   isPlayingRecorded = false,
   onRetry,
-  onRequestKeySetup,
 }) => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<PronunciationCoachingResponse | null>(null);
@@ -73,13 +70,8 @@ export const PronunciationFeedbackCard: React.FC<PronunciationFeedbackCardProps>
     );
   };
 
-  // Request AI coach deep phonetic analysis
+  // Prepare local pronunciation practice tips.
   const handleAskAICoach = async () => {
-    const key = getStoredGeminiApiKey();
-    if (!key && onRequestKeySetup) {
-      onRequestKeySetup();
-    }
-
     setIsAiLoading(true);
     try {
       const provider = getActivePronunciationProvider();
@@ -321,7 +313,7 @@ export const PronunciationFeedbackCard: React.FC<PronunciationFeedbackCardProps>
           </Button>
         )}
 
-        {/* AI Coach Action Button */}
+        {/* Local practice tips */}
         {!aiFeedback && (
           <Button
             variant="primary"
@@ -336,12 +328,12 @@ export const PronunciationFeedbackCard: React.FC<PronunciationFeedbackCardProps>
             }}
           >
             <Sparkles size={15} />
-            <span>{isAiLoading ? 'กำลังวิเคราะห์สัทศาสตร์...' : 'วิเคราะห์ด้วย AI Coach'}</span>
+            <span>{isAiLoading ? 'กำลังเตรียมคำแนะนำ...' : 'ดูคำแนะนำฝึกออกเสียง'}</span>
           </Button>
         )}
       </div>
 
-      {/* Deep AI Coach Pronunciation Analysis Section */}
+      {/* Pronunciation practice tips */}
       {aiFeedback && (
         <div
           style={{
@@ -380,7 +372,7 @@ export const PronunciationFeedbackCard: React.FC<PronunciationFeedbackCardProps>
               </div>
               <div>
                 <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--color-primary)' }}>
-                  คำแนะนำจาก AI Pronunciation Coach
+                  แนวทางฝึกออกเสียง
                 </span>
                 <span style={{ marginLeft: '8px', fontSize: '10px' }}>
                   <Badge variant="primary">{aiFeedback.overallRating}</Badge>

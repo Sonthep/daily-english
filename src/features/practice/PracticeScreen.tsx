@@ -38,6 +38,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
     'Design & Marketing',
     'Daily Life',
     'Gaming',
+    'Custom',
     'Custom AI',
   ];
 
@@ -153,7 +154,9 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
                 ? 'ชีวิตประจำวัน'
                 : cat === 'Gaming'
                 ? 'เกม & การเล่นเป็นทีม'
-                : 'สร้างโดย AI';
+                : cat === 'Custom AI'
+                  ? 'สร้างโดย AI'
+                  : 'บทเรียนกำหนดเอง';
 
             return (
               <button
@@ -226,10 +229,10 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onStartLesson })
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Badge variant={lesson.isAiGenerated ? 'accent' : 'primary'} icon={<Sparkles size={12} />}>
-                        {lesson.isAiGenerated ? 'สร้างโดย AI' : lesson.category}
+                      <Badge variant={lesson.isAiGenerated ? 'accent' : 'primary'} icon={lesson.isAiGenerated ? <Sparkles size={12} /> : <BookOpen size={12} />}>
+                        {lesson.isAiGenerated ? 'สร้างโดย AI' : lesson.isCustom ? 'บทเรียนกำหนดเอง' : lesson.category}
                       </Badge>
-                      {lesson.isAiGenerated && (
+                      {(lesson.isAiGenerated || lesson.isCustom) && (
                         <button
                           type="button"
                           onClick={(e) => {

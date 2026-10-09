@@ -18,9 +18,7 @@ export const AICoachFeedbackCard: React.FC<AICoachFeedbackCardProps> = ({
 }) => {
   const displayTitle =
     title ??
-    (feedback.source === 'ai'
-      ? 'คำแนะนำจาก AI Coach'
-      : 'ตัวอย่างแนวทางการตอบ (Self-check)');
+    'ตัวอย่างแนวทางการตอบ (Self-check)';
 
   const handleSpeak = (text: string) => {
     speechService.speak(text);
@@ -42,7 +40,7 @@ export const AICoachFeedbackCard: React.FC<AICoachFeedbackCardProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Badge variant="primary" icon={<Sparkles size={12} />}>
-            {feedback.source === 'ai' ? 'AI Coach' : 'ตัวอย่าง'}
+            ตัวอย่าง
           </Badge>
           <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--color-text)' }}>
             {displayTitle}
@@ -106,7 +104,7 @@ export const AICoachFeedbackCard: React.FC<AICoachFeedbackCardProps> = ({
             size="sm"
             onClick={() => handleSpeak(feedback.correctedSentence!)}
             style={{ padding: '6px', minHeight: '32px', flexShrink: 0 }}
-            title="ฟังเสียงอ่านของ AI"
+            title="ฟังเสียงอ่านของตัวอย่าง"
           >
             <Volume2 size={18} color="var(--color-primary)" />
           </Button>

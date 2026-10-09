@@ -650,10 +650,6 @@ export const PhrasesScreen: React.FC<PhrasesScreenProps> = ({ onNavigate, onStar
         isOpen={lessonWords !== null}
         words={lessonWords || []}
         onClose={() => setLessonWords(null)}
-        onConfigureAI={() => {
-          setLessonWords(null);
-          onNavigate({ path: 'settings' });
-        }}
         onLessonCreated={(lesson: Lesson, durationMinutes, startImmediately) => {
           setLessonWords(null);
           if (startImmediately) {

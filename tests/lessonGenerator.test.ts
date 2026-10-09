@@ -5,16 +5,14 @@ import {
   parseGeminiLessonResponse,
   parseGeminiWordLessonResponse,
 } from '../src/lib/ai/lessonGenerator';
-import { clearStoredGeminiApiKey, setStoredGeminiApiKey } from '../src/lib/ai/geminiProvider';
 import { LearningResource } from '../src/types';
 
 afterEach(() => {
-  clearStoredGeminiApiKey();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
-describe('AI Lesson Generator', () => {
+describe('Local Lesson Generator', () => {
   const mockResource: LearningResource = {
     id: 'res-test-1',
     title: 'Steve Jobs Stanford Speech',
@@ -38,9 +36,10 @@ describe('AI Lesson Generator', () => {
     it('generates a valid 5-minute lesson structure offline', () => {
       const lesson = generateHeuristicLesson(mockResource, { targetDurationMinutes: 5 });
 
-      expect(lesson.id).toContain('lesson-ai-');
-      expect(lesson.category).toBe('Custom AI');
-      expect(lesson.isAiGenerated).toBe(true);
+      expect(lesson.id).toContain('lesson-resource-');
+      expect(lesson.category).toBe('Custom');
+      expect(lesson.isCustom).toBe(true);
+      expect(lesson.isAiGenerated).toBeUndefined();
       expect(lesson.sourceResourceId).toBe('res-test-1');
       expect(lesson.sentences.length).toBe(4);
       expect(lesson.prompts.length).toBe(1);
@@ -51,7 +50,7 @@ describe('AI Lesson Generator', () => {
     it('generates a valid 15-minute lesson with appropriate limits', () => {
       const lesson = generateHeuristicLesson(mockResource, { targetDurationMinutes: 15 });
       expect(lesson.sentences.length).toBeLessThanOrEqual(6);
-      expect(lesson.isAiGenerated).toBe(true);
+      expect(lesson.isCustom).toBe(true);
     });
   });
 
@@ -100,7 +99,7 @@ describe('AI Lesson Generator', () => {
       const malformed = 'Not valid JSON at all';
       const lesson = parseGeminiLessonResponse(malformed, mockResource, { targetDurationMinutes: 5 });
 
-      expect(lesson.isAiGenerated).toBe(true);
+      expect(lesson.isCustom).toBe(true);
       expect(lesson.sentences.length).toBe(4);
     });
   });
@@ -128,7 +127,7 @@ describe('AI Lesson Generator', () => {
 
     it('accepts a complete lesson that uses all selected words', () => {
       const lesson = parseGeminiWordLessonResponse(JSON.stringify(validResponse), words, 'Design & Marketing', 5);
-      expect(lesson.category).toBe('Custom AI');
+      expect(lesson.category).toBe('Custom');
       expect(lesson.targetPhrases).toHaveLength(3);
       expect(lesson.sentences).toHaveLength(3);
       expect(lesson.isAiGenerated).toBe(true);
@@ -151,102 +150,25 @@ describe('AI Lesson Generator', () => {
         .toThrow('บทเรียนที่สร้างมายังมีเนื้อหาไม่ครบ');
     });
 
-    it('requires a Gemini key instead of returning a fabricated offline lesson', async () => {
-      clearStoredGeminiApiKey();
-      await expect(generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing'))
-        .rejects.toThrow('กรุณาตั้งค่า OpenRouter API Key');
-    });
-
-    it('sends the selected words through the API key header and returns a lesson', async () => {
-      setStoredGeminiApiKey('test-key');
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: JSON.stringify(validResponse) } }] }),
-      });
+    it('creates a local lesson without sending a network request', async () => {
+      const fetchMock = vi.fn();
       vi.stubGlobal('fetch', fetchMock);
-
-      const lesson = await generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
-      const requestOptions = fetchMock.mock.calls[0][1] as RequestInit;
-      const requestBody = JSON.parse(String(requestOptions.body));
-
-      expect(lesson.targetPhrases).toHaveLength(words.length);
-      expect(new Headers(requestOptions.headers).get('Authorization')).toBe('Bearer test-key');
-      expect(new Headers(requestOptions.headers).get('X-Free-Fallback')).toBe('false');
-      expect(requestBody.messages[1].content).toContain(JSON.stringify(words));
-      expect(requestBody.response_format.type).toBe('json_object');
-      expect(String(fetchMock.mock.calls[0][0])).toMatch(/(?:\/api\/openrouter\/chat\/completions|https:\/\/openrouter\.ai\/api\/v1\/chat\/completions)$/);
-    });
-
-    it('falls back to Gemma after Qwen is unavailable', async () => {
-      setStoredGeminiApiKey('test-key');
-      const fetchMock = vi.fn()
-        .mockResolvedValueOnce({ ok: false, status: 503, headers: new Headers() })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ choices: [{ message: { content: JSON.stringify(validResponse) } }] }),
-        });
-      vi.stubGlobal('fetch', fetchMock);
-
       const lesson = await generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).model).toBe('qwen/qwen3.8-27b:free');
-      expect(JSON.parse(String(fetchMock.mock.calls[1][1].body)).model).toBe('google/gemma-4-26b-a4b-it:free');
       expect(lesson.targetPhrases).toHaveLength(words.length);
+      expect(lesson.isCustom).toBe(true);
+      expect(lesson.isAiGenerated).toBeUndefined();
+      expect(lesson.sentences.every((sentence) => words.some((word) => sentence.en.includes(word)))).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('retries with Gemma when Qwen returns an incomplete lesson', async () => {
-      setStoredGeminiApiKey('test-key');
-      const incompleteResponse = {
-        ...validResponse,
-        sentences: validResponse.sentences.map((sentence, index) => index === 0 ? { ...sentence, th: '' } : sentence),
-      };
-      const fetchMock = vi.fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ choices: [{ message: { content: JSON.stringify(incompleteResponse) } }] }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ choices: [{ message: { content: JSON.stringify(validResponse) } }] }),
-        });
+    it('creates two prompts for a 15-minute local lesson', async () => {
+      const fetchMock = vi.fn();
       vi.stubGlobal('fetch', fetchMock);
+      const lesson = await generateLessonFromWords(words, { targetDurationMinutes: 15 }, 'Design & Marketing');
 
-      const lesson = await generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
-
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(JSON.parse(String(fetchMock.mock.calls[1][1].body)).model).toBe('google/gemma-4-26b-a4b-it:free');
-      expect(lesson.targetPhrases).toHaveLength(words.length);
-    });
-
-    it('identifies shared provider rate limits without claiming account quota is exhausted', async () => {
-      setStoredGeminiApiKey('test-key');
-      const rateLimitedResponse = {
-        ok: false,
-        status: 429,
-        headers: new Headers(),
-        json: async () => ({ error: { message: 'Provider returned error', metadata: { raw: 'temporarily rate-limited upstream', limit_source: 'upstream_provider_shared_pool' } } }),
-      };
-      vi.stubGlobal('fetch', vi.fn()
-        .mockResolvedValueOnce(rateLimitedResponse)
-        .mockResolvedValueOnce(rateLimitedResponse));
-
-      await expect(generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing'))
-        .rejects.toThrow('ไม่ใช่เครดิตบัญชีหมด');
-    });
-
-    it('reports 503 as temporary service unavailability, not an invalid key', async () => {
-      setStoredGeminiApiKey('test-key');
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-        ok: false,
-        status: 503,
-        headers: new Headers(),
-        json: async () => ({ error: { message: 'model is temporarily overloaded' } }),
-      }));
-
-      const generation = generateLessonFromWords(words, { targetDurationMinutes: 5 }, 'Design & Marketing');
-      await expect(generation).rejects.toThrow('OpenRouter');
-      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+      expect(lesson.prompts).toHaveLength(2);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

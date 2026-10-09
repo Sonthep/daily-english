@@ -58,7 +58,7 @@ const isLesson = (value: unknown): boolean =>
   isNonEmptyString(value.id) &&
   isNonEmptyString(value.titleTh) &&
   isNonEmptyString(value.titleEn) &&
-  ['Design & Marketing', 'Daily Life', 'Gaming', 'Custom AI'].includes(String(value.category)) &&
+  ['Design & Marketing', 'Daily Life', 'Gaming', 'Custom', 'Custom AI'].includes(String(value.category)) &&
   typeof value.objectiveTh === 'string' &&
   Array.isArray(value.sentences) &&
   value.sentences.every(
@@ -81,6 +81,7 @@ const isLesson = (value: unknown): boolean =>
   value.targetPhrases.every(isTargetPhrase) &&
   isTimestamp(value.createdAt) &&
   (value.isAiGenerated === undefined || typeof value.isAiGenerated === 'boolean') &&
+  (value.isCustom === undefined || typeof value.isCustom === 'boolean') &&
   (value.sourceResourceId === undefined || typeof value.sourceResourceId === 'string');
 
 const isProfile = (value: unknown): boolean =>
@@ -415,7 +416,7 @@ export class StorageService implements IStorageService {
     const reviewEvents = await this.reviewRepo.getAllReviewEvents();
     const resources = await this.resourceRepo.getAllResources();
     const allLessons = await this.lessonRepo.getAllLessons();
-    const customLessons = allLessons.filter((l) => l.isAiGenerated);
+    const customLessons = allLessons.filter((lesson) => lesson.isCustom || lesson.isAiGenerated);
 
     return {
       schemaVersion: 2,
@@ -472,7 +473,9 @@ export class StorageService implements IStorageService {
       if (
         parsed.customLessons !== undefined &&
         (!Array.isArray(parsed.customLessons) ||
-          !parsed.customLessons.every((lesson: unknown) => isLesson(lesson) && isRecord(lesson) && lesson.isAiGenerated === true))
+          !parsed.customLessons.every((lesson: unknown) =>
+            isLesson(lesson) && isRecord(lesson) && (lesson.isCustom === true || lesson.isAiGenerated === true)
+          ))
       ) {
         return { valid: false, error: 'ข้อมูล customLessons มีรูปแบบไม่ถูกต้อง' };
       }

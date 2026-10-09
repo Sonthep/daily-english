@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle, BookOpen, Clock, Play, RefreshCw, Sparkles } from 'lucide-react';
 import { Lesson } from '../../types';
 import { generateLessonFromWords } from '../../lib/ai/lessonGenerator';
-import { getStoredGeminiApiKey } from '../../lib/ai/geminiProvider';
 import { lessonRepo } from '../../lib/storage/repositories';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -13,7 +12,6 @@ export interface CommonWordsLessonModalProps {
   isOpen: boolean;
   words: string[];
   onClose: () => void;
-  onConfigureAI: () => void;
   onLessonCreated: (lesson: Lesson, durationMinutes: 5 | 15, startImmediately: boolean) => void;
 }
 
@@ -27,7 +25,6 @@ export const CommonWordsLessonModal: React.FC<CommonWordsLessonModalProps> = ({
   isOpen,
   words,
   onClose,
-  onConfigureAI,
   onLessonCreated,
 }) => {
   const [targetDuration, setTargetDuration] = useState<5 | 15>(words.length === 3 ? 5 : 15);
@@ -36,7 +33,6 @@ export const CommonWordsLessonModal: React.FC<CommonWordsLessonModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [generatedLesson, setGeneratedLesson] = useState<Lesson | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const hasApiKey = Boolean(getStoredGeminiApiKey());
   const durationIsValid = targetDuration === 15 || words.length === 3;
 
   useEffect(() => {
@@ -83,7 +79,7 @@ export const CommonWordsLessonModal: React.FC<CommonWordsLessonModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="สร้างบทเรียนจากคำที่เลือก"
-      description="OpenRouter จะนำคำไปสร้างประโยคและโจทย์ฝึก คุณตรวจเนื้อหาก่อนบันทึกได้"
+      description="สร้างแบบฝึกในเครื่องจากคำที่เลือก โดยคำและบริบทจะไม่ถูกส่งออกไป"
       maxWidth="760px"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
@@ -141,27 +137,20 @@ export const CommonWordsLessonModal: React.FC<CommonWordsLessonModalProps> = ({
             </div>
 
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-              คำที่เลือกและบริบทจะถูกส่งไปยัง OpenRouter เพื่อสร้างบทเรียน ตรวจคำแปลและตัวอย่างก่อนนำไปฝึก
+              แบบฝึกใช้ประโยคแม่แบบในเครื่อง ความหมายของคำเป้าหมายให้ลองนึกเองก่อนตรวจจากแหล่งอ้างอิง
             </p>
 
-            {!hasApiKey ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
-                <span className="muted">ต้องตั้งค่า OpenRouter API Key ก่อน จึงจะสร้างบทเรียนได้</span>
-                <Button variant="outline" onClick={onConfigureAI}>ไปตั้งค่า AI</Button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-                <Button variant="outline" onClick={onClose} disabled={isGenerating}>ยกเลิก</Button>
-                <Button onClick={handleGenerate} disabled={!durationIsValid || isGenerating || isSaving}>
-                  {isGenerating ? <><RefreshCw size={16} /> กำลังสร้าง...</> : <><Sparkles size={16} /> สร้างตัวอย่างบทเรียน</>}
-                </Button>
-              </div>
-            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
+              <Button variant="outline" onClick={onClose} disabled={isGenerating}>ยกเลิก</Button>
+              <Button onClick={handleGenerate} disabled={!durationIsValid || isGenerating || isSaving}>
+                {isGenerating ? <><RefreshCw size={16} /> กำลังสร้าง...</> : <><Sparkles size={16} /> สร้างแบบฝึกในเครื่อง</>}
+              </Button>
+            </div>
           </>
         ) : (
           <>
             <Card padding="md" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', backgroundColor: 'var(--color-primary-soft)' }}>
-              <Badge variant="primary">บทเรียนสร้างด้วย AI · {focusOptions.find((option) => option.value === focus)?.label}</Badge>
+              <Badge variant="primary">แบบฝึกจากคำที่เลือก · {focusOptions.find((option) => option.value === focus)?.label}</Badge>
               <h3>{generatedLesson.titleTh}</h3>
               <span className="muted">{generatedLesson.titleEn}</span>
               <p style={{ margin: 0 }}>{generatedLesson.objectiveTh}</p>

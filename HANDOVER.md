@@ -1,6 +1,6 @@
 # Daily English — Project Handover & Environment Setup Guide
 
-> **สถานะโครงการ**: พร้อมใช้งานจริง (Production-Ready MVP + Custom Resources + AI Coach BYOK + Voice Shadowing STT)  
+> **สถานะโครงการ**: Local-first MVP + Custom Resources + Local Self-check + Voice Shadowing STT (ไม่มี AI API)
 > **อัปเดตล่าสุด**: กันยายน 2026  
 > **ชุดการทดสอบ**: ผ่าน 100% (11 Test Suites, 52 Automated Tests)  
 > **TypeScript & Build**: ผ่าน 100% (0 Errors)
@@ -53,8 +53,8 @@ npm run preview
 | **5. Flashcard Review Modal** | ✅ เสร็จสมบูรณ์ | หน้าต่างทบทวนคำศัพท์คลัง My Phrases แบบ Think-before-reveal พร้อมประเมิน Again / Remembered และอัปเดตสถานะใน IndexedDB ทันที |
 | **6. Custom Learning Resources** | ✅ เสร็จสมบูรณ์ | แนบวิดีโอ YouTube (เล่นในตัว ไม่เก็บคุกกี้), พอดแคสต์, เพลง, ซีนหนัง พร้อมโหมด Shadowing อัดเสียงเทียบ และปุ่ม 1-Click Save to My Phrases |
 | **7. Bulk Text & Subtitle Parser** | ✅ เสร็จสมบูรณ์ | วางเนื้อเพลง, ซับไตเติล SRT/VTT, เวลา (เช่น 01:24), ประโยคสองภาษา (EN/TH) ระบบตัดแบ่งและสกัดคำแปลให้อัตโนมัติในคลิกเดียว |
-| **8. AI Coach (BYOK: Gemini)** | ✅ เสร็จสมบูรณ์ | เก็บ API Key ใน Browser LocalStorage และส่งตรงให้ Google ผ่าน HTTPS header; ไม่มีเซิร์ฟเวอร์กลาง แต่ LocalStorage ไม่ใช่ secure vault, มีหน้าต่างตรวจคีย์ใน Settings และมี fallback เมื่อไม่ได้ใช้ AI |
-| **9. Voice Shadowing & AI Pronunciation Evaluation** | ✅ เสร็จสมบูรณ์ | Speech-to-Text สดในเบราว์เซอร์, วิเคราะห์คำต่อคำแบบออฟไลน์ 0ms, คำนวณ Accuracy Match Score (0–100%), ไฮไลต์คำชัดเจน/ใกล้เคียง/ตกหล่น, และ AI Pronunciation Coach ผ่าน Gemini BYOK |
+| **8. Local Self-check** | ✅ เสร็จสมบูรณ์ | ตัวอย่างคำตอบและแนวทางฝึกในเครื่อง ไม่มี API Key และไม่ส่งคำตอบไป AI ภายนอก |
+| **9. Voice Shadowing & Local Pronunciation Practice** | ✅ เสร็จสมบูรณ์ | Speech-to-Text ตามความสามารถของเบราว์เซอร์, เปรียบเทียบคำแบบออฟไลน์ และให้แนวทางฝึกทั่วไป; ไม่มี AI Pronunciation API |
 | **10. Automated Test Suite** | ✅ เสร็จสมบูรณ์ | 11 ไฟล์ทดสอบ (52 tests ผ่าน 100%) ครอบคลุม Storage, Scheduler, Idempotency, Active Timer, Resources, Bulk Parser, Pronunciation Matcher, และ AI Pronunciation |
 
 ---
@@ -82,8 +82,8 @@ daily-english/
 │   ├── lib/
 │   │   ├── ai/
 │   │   │   ├── types.ts            # TextFeedbackResponse, ITutorProvider
-│   │   │   ├── geminiProvider.ts   # Google Gemini REST Client & Local Storage Key Manager
-│   │   │   └── provider.ts         # Active Tutor Provider Factory (Gemini vs Example Fallback)
+│   │   │   ├── provider.ts         # Local example and pronunciation providers
+│   │   │   └── lessonGenerator.ts  # Local templates for custom lessons
 │   │   ├── audio/
 │   │   │   ├── speech.ts           # Web SpeechSynthesis Controller
 │   │   │   └── recorder.ts         # In-memory MediaRecorder with fallback
@@ -105,11 +105,11 @@ daily-english/
 │       ├── onboarding/             # Onboarding Screen 4 สเต็ป
 │       ├── today/                  # หน้าแรก 1-Click Launch & Daily Status
 │       ├── practice/               # แคตตาล็อกบทเรียน
-│       ├── lesson/                 # หน้าเล่นบทเรียน 5 สเต็ป (พร้อม AI Coach ใน Use it)
+│       ├── lesson/                 # หน้าเล่นบทเรียน 5 สเต็ป (พร้อมตัวอย่าง Self-check)
 │       ├── phrases/                # คลังคำศัพท์ + Flashcard Review Session Modal
 │       ├── resources/              # คลังสื่อเรียนรู้ + หน้าจอศึกษา + Shadowing + Bulk Paste
 │       ├── progress/               # สถิติเวลาจริงและประวัติการเรียน
-│       └── settings/               # ตั้งค่าโปรไฟล์, AI Coach Gemini Key, Backup/Restore JSON
+│       └── settings/               # ตั้งค่าโปรไฟล์, Backup/Restore JSON
 ```
 
 ---
@@ -125,19 +125,12 @@ daily-english/
   - เพิ่ม Service Worker สำหรับ Cache Static Assets (`vite-plugin-pwa` หรือ Custom Worker)
   - ใช้งานแบบ Offline ได้ 100%
 
-### 2. ระบบสร้างบทเรียน 4 สเต็ปจาก Resource อัตโนมัติ (Lesson Generator)
-- **เป้าหมาย**: นำ Resource ที่ผู้ใช้แนบ (เช่น คลิป YouTube หรือเนื้อเพลง) มาแปลงเป็นบทเรียน 4 ขั้นตอน (Warm-up, Shadowing, Rephrase, Reflection) ผ่าน AI Coach
-- **สิ่งที่ต้องทำ**: เพิ่มฟังก์ชันใน `geminiProvider.ts` ให้ช่วยสกัด Prompt คำถามและคำศัพท์เป้าหมายจากประโยคของสื่อ
-
-### 3. ตัวเลือกเชื่อมต่อ AI เพิ่มเติม (Multi-Provider BYOK)
-- **เป้าหมาย**: นอกจาก Google Gemini แล้ว ให้ผู้ใช้สามารถเลือกใส่คีย์ของ **OpenAI (GPT-4o-mini)**, **Anthropic (Claude 3.5 Haiku)** หรือ **Local Ollama** ได้ตามความชอบ
-
 ---
 
 ## 🔒 กฎเหล็กและข้อพึงระวังในการพัฒนาต่อ (Important Constraints)
 
-1. **ห้ามบันทึก Secret / API Key ลงใน Code หรือ Git เด็ดขาด**:
-   - ห้ามฝังคีย์ส่วนกลางใน client bundle หรือ `VITE_*`; BYOK ใช้คีย์ของผู้ใช้ ส่งผ่าน HTTPS header โดยแจ้งข้อจำกัดของ LocalStorage ให้ชัดเจน
+1. **ไม่มี AI API integration ในรุ่นปัจจุบัน**:
+   - ตัวอย่าง Self-check และแม่แบบบทเรียนต้องทำงานในเครื่อง; ห้ามเพิ่มคำขอไป AI ภายนอกโดยไม่ปรับขอบเขตผลิตภัณฑ์และขอความยินยอมจากผู้ใช้
 2. **Local-First & Data Privacy**:
    - ข้อมูลคำศัพท์และบทเรียนต้องทำงานได้บน IndexedDB ของเครื่องผู้ใช้เสมอ หากไม่มีอินเทอร์เน็ต แอปจะต้องไม่พังและยังเข้าเรียนได้ตามปกติ
 3. **Audio In-Memory Lifecycle**:

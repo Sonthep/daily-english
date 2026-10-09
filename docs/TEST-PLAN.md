@@ -13,7 +13,7 @@
 | **AC-03** | รีเฟรชหน้าเว็บแล้ว ข้อมูล Profile, Phrases และ Session คงอยู่ครบ | Storage / E2E | รอทดสอบ |
 | **AC-04** | การกด Complete Session ซ้ำ จะไม่เพิ่มประวัติหรือสถิตินาทีเบิ้ล (Idempotency) | Unit / Integration | ผ่าน (Unit) |
 | **AC-05** | หากปฏิเสธสิทธิ์ไมโครโฟนหรือไม่พร้อมใช้งาน จะมี Typed Fallback ให้ฝึกต่อได้ | UI / Audio | รอทดสอบ |
-| **AC-06** | ไม่มี API Key ภายนอก ก็ยังสามารถใช้งานฟีเจอร์ Phase 1 ได้อย่างครบถ้วน 100% | Integration | รอทดสอบ |
+| **AC-06** | ฟีเจอร์ฝึกหลักทำงานโดยไม่เรียก AI API ภายนอก; feedback ระบุชัดว่าเป็นตัวอย่าง Self-check | Integration | รอทดสอบ |
 | **AC-07** | หน้า Progress หากยังไม่มีประวัติ จะแสดง Empty State ที่สุภาพ ไม่แสดงตัวเลขปลอม | UI State | รอทดสอบ |
 | **AC-08** | เมื่อกดทบทวนวลี (Remembered / Again) ค่า `dueAt` และ `stage` เปลี่ยนตามสูตร | Unit Test | ผ่าน (Unit) |
 | **AC-09** | Export ข้อมูลเป็น JSON แล้ว Import กลับเข้ามา ข้อมูลยังคงความสมบูรณ์ครบถ้วน | Unit / Integration | รอทดสอบ |

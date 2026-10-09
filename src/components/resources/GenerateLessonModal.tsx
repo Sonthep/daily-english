@@ -72,8 +72,8 @@ export const GenerateLessonModal: React.FC<GenerateLessonModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="✨ สร้างบทเรียน 5 สเต็ปด้วย AI"
-      description={`แปลงเนื้อหาจาก "${resource.title}" ให้เป็นบทเรียนฝึกฟัง พูด และทบทวนภาษาอังกฤษแบบครบวงจร`}
+      title="สร้างบทเรียนจากสื่อ"
+      description={`จัดประโยคและวลีที่บันทึกไว้ใน "${resource.title}" ให้เป็นบทเรียนฝึกในเครื่อง`}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
         {errorMsg && (
@@ -227,7 +227,7 @@ export const GenerateLessonModal: React.FC<GenerateLessonModalProps> = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Badge variant="primary">AI Generated Lesson</Badge>
+                <Badge variant="primary">บทเรียนกำหนดเอง</Badge>
                 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
                   {generatedLesson.sentences.length} ประโยค • {generatedLesson.targetPhrases.length} วลีสำคัญ
                 </span>
